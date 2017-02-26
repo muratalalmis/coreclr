@@ -195,7 +195,7 @@ void CodeGen::instGen_Set_Reg_To_Imm(emitAttr size, regNumber reg, ssize_t imm, 
 
 //------------------------------------------------------------------------
 // genSetRegToConst: Generate code to set a register 'targetReg' of type 'targetType'
-//    to the constant specified by the constant (GT_CNS_INT or GT_CNS_DBL) in 'tree'.
+//    to the constant specified by the constant (GT_CNS_INT, GT_CNS_DBL, or GT_CNS_FLT) in 'tree'.
 //
 // Notes:
 //    This does not call genProduceReg() on the target register.
@@ -224,44 +224,52 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
         }
         break;
 
+        case GT_CNS_FLT:
+        {
+            // TODO-ARM-CQ: Do we have a faster/smaller way to generate 0.0 in thumb2 ISA ?
+            assert(targetType == TYP_FLOAT);
+
+            GenTreeFltCon* fltConst   = tree->AsFltCon();
+            float          constValue = fltConst->gtFltCon.gtFconVal;
+
+            unsigned* cv = (unsigned*)&constValue;
+
+            // Get a temp integer register
+            regMaskTP tmpRegMask = tree->gtRsvdRegs;
+            regNumber tmpReg     = genRegNumFromMask(tmpRegMask);
+            assert(tmpReg != REG_NA);
+
+            genSetRegToIcon(tmpReg, cv[0]);
+
+            getEmitter()->emitIns_R_R(INS_vmov_i2f, EA_4BYTE, targetReg, tmpReg);
+        }
+        break;
+
         case GT_CNS_DBL:
         {
+            // TODO-ARM-CQ: Do we have a faster/smaller way to generate 0.0 in thumb2 ISA ?
+            assert(targetType == TYP_DOUBLE);
+
             GenTreeDblCon* dblConst   = tree->AsDblCon();
             double         constValue = dblConst->gtDblCon.gtDconVal;
-            // TODO-ARM-CQ: Do we have a faster/smaller way to generate 0.0 in thumb2 ISA ?
-            if (targetType == TYP_FLOAT)
-            {
-                // Get a temp integer register
-                regMaskTP tmpRegMask = tree->gtRsvdRegs;
-                regNumber tmpReg     = genRegNumFromMask(tmpRegMask);
-                assert(tmpReg != REG_NA);
 
-                float f = forceCastToFloat(constValue);
-                genSetRegToIcon(tmpReg, *((int*)(&f)));
-                getEmitter()->emitIns_R_R(INS_vmov_i2f, EA_4BYTE, targetReg, tmpReg);
-            }
-            else
-            {
-                assert(targetType == TYP_DOUBLE);
+            unsigned* cv = (unsigned*)&constValue;
 
-                unsigned* cv = (unsigned*)&constValue;
+            // Get two temp integer registers
+            regMaskTP tmpRegsMask = tree->gtRsvdRegs;
+            regMaskTP tmpRegMask  = genFindHighestBit(tmpRegsMask); // set tmpRegMsk to a one-bit mask
+            regNumber tmpReg1     = genRegNumFromMask(tmpRegMask);
+            assert(tmpReg1 != REG_NA);
 
-                // Get two temp integer registers
-                regMaskTP tmpRegsMask = tree->gtRsvdRegs;
-                regMaskTP tmpRegMask  = genFindHighestBit(tmpRegsMask); // set tmpRegMsk to a one-bit mask
-                regNumber tmpReg1     = genRegNumFromMask(tmpRegMask);
-                assert(tmpReg1 != REG_NA);
+            tmpRegsMask &= ~genRegMask(tmpReg1);                // remove the bit for 'tmpReg1'
+            tmpRegMask        = genFindHighestBit(tmpRegsMask); // set tmpRegMsk to a one-bit mask
+            regNumber tmpReg2 = genRegNumFromMask(tmpRegMask);
+            assert(tmpReg2 != REG_NA);
 
-                tmpRegsMask &= ~genRegMask(tmpReg1);                // remove the bit for 'tmpReg1'
-                tmpRegMask        = genFindHighestBit(tmpRegsMask); // set tmpRegMsk to a one-bit mask
-                regNumber tmpReg2 = genRegNumFromMask(tmpRegMask);
-                assert(tmpReg2 != REG_NA);
+            genSetRegToIcon(tmpReg1, cv[0]);
+            genSetRegToIcon(tmpReg2, cv[1]);
 
-                genSetRegToIcon(tmpReg1, cv[0]);
-                genSetRegToIcon(tmpReg2, cv[1]);
-
-                getEmitter()->emitIns_R_R_R(INS_vmov_i2d, EA_8BYTE, targetReg, tmpReg1, tmpReg2);
-            }
+            getEmitter()->emitIns_R_R_R(INS_vmov_i2d, EA_8BYTE, targetReg, tmpReg1, tmpReg2);
         }
         break;
 
@@ -299,6 +307,7 @@ void CodeGen::genCodeForTreeNode(GenTreePtr treeNode)
     switch (treeNode->gtOper)
     {
         case GT_CNS_INT:
+        case GT_CNS_FLT:
         case GT_CNS_DBL:
             genSetRegToConst(targetReg, targetType, treeNode);
             genProduceReg(treeNode);

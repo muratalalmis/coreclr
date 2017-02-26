@@ -435,7 +435,7 @@ void CodeGen::instGen_Set_Reg_To_Imm(emitAttr size, regNumber reg, ssize_t imm, 
 /***********************************************************************************
  *
  * Generate code to set a register 'targetReg' of type 'targetType' to the constant
- * specified by the constant (GT_CNS_INT or GT_CNS_DBL) in 'tree'. This does not call
+ * specified by the constant (GT_CNS_INT, GT_CNS_FLT, or GT_CNS_DBL) in 'tree'. This does not call
  * genProduceReg() on the target register.
  */
 void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTreePtr tree)
@@ -462,31 +462,42 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
         }
         break;
 
+        case GT_CNS_FLT:
+        {
+            assert(targetType == TYP_FLOAT);
+            float constValue = tree->gtFltCon.gtFconVal;
+
+            // Make sure we use "xorpd reg, reg"  only for +ve zero constant (0.0) and not for -ve zero (-0.0)
+            if (*(__int32*)&constValue == 0)
+            {
+                // A faster/smaller way to generate 0
+                instruction ins = genGetInsForOper(GT_XOR, TYP_FLOAT);
+                inst_RV_RV(ins, targetReg, targetReg, TYP_FLOAT);
+            }
+            else
+            {
+                GenTreePtr cns = genMakeConst(&constValue, TYP_FLOAT, tree, false);
+                inst_RV_TT(ins_Load(TYP_FLOAT), targetReg, cns);
+            }
+        }
+        break;
+
         case GT_CNS_DBL:
         {
+            assert(targetType == TYP_DOUBLE);
             double constValue = tree->gtDblCon.gtDconVal;
 
             // Make sure we use "xorpd reg, reg"  only for +ve zero constant (0.0) and not for -ve zero (-0.0)
             if (*(__int64*)&constValue == 0)
             {
                 // A faster/smaller way to generate 0
-                instruction ins = genGetInsForOper(GT_XOR, targetType);
-                inst_RV_RV(ins, targetReg, targetReg, targetType);
+                instruction ins = genGetInsForOper(GT_XOR, TYP_DOUBLE);
+                inst_RV_RV(ins, targetReg, targetReg, TYP_DOUBLE);
             }
             else
             {
-                GenTreePtr cns;
-                if (targetType == TYP_FLOAT)
-                {
-                    float f = forceCastToFloat(constValue);
-                    cns     = genMakeConst(&f, targetType, tree, false);
-                }
-                else
-                {
-                    cns = genMakeConst(&constValue, targetType, tree, true);
-                }
-
-                inst_RV_TT(ins_Load(targetType), targetReg, cns);
+                GenTreePtr cns = genMakeConst(&constValue, TYP_DOUBLE, tree, true);
+                inst_RV_TT(ins_Load(TYP_DOUBLE), targetReg, cns);
             }
         }
         break;
@@ -1319,6 +1330,7 @@ void CodeGen::genCodeForTreeNode(GenTreePtr treeNode)
 #endif // _TARGET_X86_
             __fallthrough;
 
+        case GT_CNS_FLT:
         case GT_CNS_DBL:
             genSetRegToConst(targetReg, targetType, treeNode);
             genProduceReg(treeNode);

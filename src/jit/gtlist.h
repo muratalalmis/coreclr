@@ -38,6 +38,7 @@ GTNODE(RET_EXPR         , "retExpr"      ,GenTreeRetExpr     ,0,GTK_LEAF)       
 
 GTNODE(CNS_INT          , "const"        ,GenTreeIntCon      ,0,GTK_LEAF|GTK_CONST)
 GTNODE(CNS_LNG          , "lconst"       ,GenTreeLngCon      ,0,GTK_LEAF|GTK_CONST)
+GTNODE(CNS_FLT          , "fconst"       ,GenTreeFltCon      ,0,GTK_LEAF|GTK_CONST)
 GTNODE(CNS_DBL          , "dconst"       ,GenTreeDblCon      ,0,GTK_LEAF|GTK_CONST)
 GTNODE(CNS_STR          , "sconst"       ,GenTreeStrCon      ,0,GTK_LEAF|GTK_CONST)
 

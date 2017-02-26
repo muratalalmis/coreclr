@@ -569,7 +569,12 @@ public:
         return isContained() && IsCnsIntOrI() && !isUsedFromSpillTemp();
     }
 
-    bool isContainedFltOrDblImmed() const
+    bool isContainedFltImmed() const
+    {
+        return isContained() && (OperGet() == GT_CNS_FLT);
+    }
+
+    bool isContainedDblImmed() const
     {
         return isContained() && (OperGet() == GT_CNS_DBL);
     }
@@ -590,7 +595,8 @@ public:
 
     bool isUsedFromMemory() const
     {
-        return ((isContained() && (isMemoryOp() || (OperGet() == GT_LCL_VAR) || (OperGet() == GT_CNS_DBL))) ||
+        return ((isContained() && (isMemoryOp() || (OperGet() == GT_LCL_VAR) || (OperGet() == GT_CNS_FLT) ||
+                                   (OperGet() == GT_CNS_DBL))) ||
                 isUsedFromSpillTemp());
     }
 
@@ -2499,6 +2505,29 @@ inline void GenTreeIntConCommon::SetIconValue(ssize_t val)
     assert(gtOper == GT_CNS_INT); //  We should never see a GT_CNS_LNG for a 64-bit target!
     AsIntCon()->gtIconVal = val;
 }
+
+/* gtFltCon -- single  constant (GT_CNS_FLT) */
+
+struct GenTreeFltCon : public GenTree
+{
+    float gtFconVal;
+
+    bool isBitwiseEqual(GenTreeFltCon* other)
+    {
+        unsigned __int32 bits      = *(unsigned __int32*)(&gtFconVal);
+        unsigned __int32 otherBits = *(unsigned __int32*)(&(other->gtFconVal));
+        return (bits == otherBits);
+    }
+
+    GenTreeFltCon(float val) : GenTree(GT_CNS_FLT, TYP_FLOAT), gtFconVal(val)
+    {
+    }
+#if DEBUGGABLE_GENTREE
+    GenTreeFltCon() : GenTree()
+    {
+    }
+#endif
+};
 
 /* gtDblCon -- double  constant (GT_CNS_DBL) */
 
@@ -4985,11 +5014,12 @@ inline bool GenTree::OperIsCopyBlkOp()
 // IsFPZero: Checks whether this is a floating point constant with value 0.0
 //
 // Return Value:
-//    Returns true iff the tree is an GT_CNS_DBL, with value of 0.0.
+//    Returns true if the tree is an GT_CNS_FLT or GT_CNS_DBL, with value of 0.0.
 
 inline bool GenTree::IsFPZero()
 {
-    if ((gtOper == GT_CNS_DBL) && (gtDblCon.gtDconVal == 0.0))
+    if (((gtOper == GT_CNS_FLT) && (gtFltCon.gtFconVal == 0.0f)) ||
+        ((gtOper == GT_CNS_DBL) && (gtDblCon.gtDconVal == 0.0)))
     {
         return true;
     }
@@ -5358,18 +5388,28 @@ inline bool GenTree::IsIntCnsFitsInI32()
 
 inline bool GenTree::IsCnsFltOrDbl() const
 {
-    return OperGet() == GT_CNS_DBL;
+    return (OperGet() == GT_CNS_FLT) || (OperGet() == GT_CNS_DBL);
 }
 
 inline bool GenTree::IsCnsNonZeroFltOrDbl()
 {
-    if (OperGet() == GT_CNS_DBL)
+    switch (OperGet())
     {
-        double constValue = gtDblCon.gtDconVal;
-        return *(__int64*)&constValue != 0;
-    }
+        case GT_CNS_FLT:
+        {
+            float constValue = gtFltCon.gtFconVal;
+            return *(__int32*)&constValue != 0;
+        }
 
-    return false;
+        case GT_CNS_DBL:
+        {
+            double constValue = gtDblCon.gtDconVal;
+            return *(__int64*)&constValue != 0;
+        }
+
+        default:
+            return false;
+    }
 }
 
 inline bool GenTree::IsHelperCall()

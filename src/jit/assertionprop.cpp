@@ -590,7 +590,7 @@ void Compiler::optPrintAssertion(AssertionDsc* curAssertion, AssertionIndex asse
         printf("Copy     ");
     }
     else if ((curAssertion->op2.kind == O2K_CONST_INT) || (curAssertion->op2.kind == O2K_CONST_LONG) ||
-             (curAssertion->op2.kind == O2K_CONST_DOUBLE))
+             (curAssertion->op2.kind == O2K_CONST_FLOAT) || (curAssertion->op2.kind == O2K_CONST_DOUBLE))
     {
         printf("Constant ");
     }
@@ -768,6 +768,17 @@ void Compiler::optPrintAssertion(AssertionDsc* curAssertion, AssertionIndex asse
                 printf("0x%016llx", curAssertion->op2.lconVal);
                 break;
 
+            case O2K_CONST_FLOAT:
+                if (*((__int32*)&curAssertion->op2.fconVal) == (__int32)0x80000000)
+                {
+                    printf("-0.00000");
+                }
+                else
+                {
+                    printf("%#lg", curAssertion->op2.fconVal);
+                }
+                break;
+
             case O2K_CONST_DOUBLE:
                 if (*((__int64*)&curAssertion->op2.dconVal) == (__int64)I64(0x8000000000000000))
                 {
@@ -833,6 +844,17 @@ Compiler::AssertionIndex Compiler::optCreateAssertion(GenTreePtr op1, GenTreePtr
     AssertionDsc assertionDsc;
     return optCreateAssertion(op1, op2, assertionKind, &assertionDsc);
 }
+
+// Windows x86 and Windows ARM/ARM64 may not define _isnanf() but they do define _isnan().
+// We will redirect the macros to these other functions if the macro is not defined for the
+// platform. This has the side effect of a possible implicit upcasting for arguments passed.
+#if (defined(_TARGET_X86_) || defined(_TARGET_ARM_) || defined(_TARGET_ARM64_)) && !defined(FEATURE_PAL)
+
+#if !defined(_isnanf)
+#define _isnanf _isnan
+#endif
+
+#endif
 
 /*****************************************************************************
  *
@@ -1094,6 +1116,10 @@ Compiler::AssertionIndex Compiler::optCreateAssertion(GenTreePtr       op1,
                     op2Kind = O2K_CONST_LONG;
                     goto CNS_COMMON;
 
+                case GT_CNS_FLT:
+                    op2Kind = O2K_CONST_FLOAT;
+                    goto CNS_COMMON;
+
                 case GT_CNS_DBL:
                     op2Kind = O2K_CONST_DOUBLE;
                     goto CNS_COMMON;
@@ -1141,6 +1167,15 @@ Compiler::AssertionIndex Compiler::optCreateAssertion(GenTreePtr       op1,
                     else if (op2->gtOper == GT_CNS_LNG)
                     {
                         assertion->op2.lconVal = op2->gtLngCon.gtLconVal;
+                    }
+                    else if (op2->gtOper == GT_CNS_FLT)
+                    {
+                        /* If we have an NaN value then don't record it */
+                        if (_isnanf(op2->gtFltCon.gtFconVal))
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+                        assertion->op2.fconVal = op2->gtFltCon.gtFconVal;
                     }
                     else
                     {
@@ -2376,12 +2411,12 @@ GenTreePtr Compiler::optVNConstantPropOnTree(BasicBlock* block, GenTreePtr stmt,
             }
             else
             {
-                // Implicit assignment conversion to float or double
-                assert(varTypeIsFloating(tree->TypeGet()));
+                // Same type no conversion required
+                assert(tree->TypeGet() == TYP_FLOAT);
 
                 newTree = optPrepareTreeForReplacement(tree, tree);
-                tree->ChangeOperConst(GT_CNS_DBL);
-                tree->gtDblCon.gtDconVal = value;
+                tree->ChangeOperConst(GT_CNS_FLT);
+                tree->gtFltCon.gtFconVal = value;
                 tree->gtVNPair           = ValueNumPair(vnLib, vnCns);
             }
             break;
@@ -2401,8 +2436,8 @@ GenTreePtr Compiler::optVNConstantPropOnTree(BasicBlock* block, GenTreePtr stmt,
             }
             else
             {
-                // Implicit assignment conversion to float or double
-                assert(varTypeIsFloating(tree->TypeGet()));
+                // Same type no conversion required
+                assert(tree->TypeGet() == TYP_DOUBLE);
 
                 newTree = optPrepareTreeForReplacement(tree, tree);
                 tree->ChangeOperConst(GT_CNS_DBL);
@@ -2528,8 +2563,8 @@ GenTreePtr Compiler::optVNConstantPropOnTree(BasicBlock* block, GenTreePtr stmt,
                     case TYP_FLOAT:
                         // Same sized reinterpretation of bits to float
                         newTree = optPrepareTreeForReplacement(tree, tree);
-                        tree->ChangeOperConst(GT_CNS_DBL);
-                        tree->gtDblCon.gtDconVal = *(reinterpret_cast<float*>(&value));
+                        tree->ChangeOperConst(GT_CNS_FLT);
+                        tree->gtFltCon.gtFconVal = *(reinterpret_cast<float*>(&value));
                         tree->gtVNPair           = ValueNumPair(vnLib, vnCns);
                         break;
 
@@ -2574,6 +2609,16 @@ GenTreePtr Compiler::optConstantAssertionProp(AssertionDsc* curAssertion,
     // Typically newTree == tree and we are updating the node in place
     switch (curAssertion->op2.kind)
     {
+        case O2K_CONST_FLOAT:
+            // There could be a positive zero and a negative zero, so don't propagate zeroes.
+            if (curAssertion->op2.fconVal == 0.0f)
+            {
+                return nullptr;
+            }
+            newTree->ChangeOperConst(GT_CNS_FLT);
+            newTree->gtFltCon.gtFconVal = curAssertion->op2.fconVal;
+            break;
+
         case O2K_CONST_DOUBLE:
             // There could be a positive zero and a negative zero, so don't propagate zeroes.
             if (curAssertion->op2.dconVal == 0.0)
@@ -2618,7 +2663,7 @@ GenTreePtr Compiler::optConstantAssertionProp(AssertionDsc* curAssertion,
                 if (varTypeIsSIMD(tree))
                 {
                     var_types simdType = tree->TypeGet();
-                    tree->ChangeOperConst(GT_CNS_DBL);
+                    tree->ChangeOperConst(GT_CNS_FLT);
                     GenTree* initVal = tree;
                     initVal->gtType  = TYP_FLOAT;
                     newTree =
@@ -3113,10 +3158,14 @@ GenTreePtr Compiler::optAssertionPropGlobal_RelOp(ASSERT_VALARG_TP assertions,
         else if (op1->TypeGet() == TYP_FLOAT)
         {
             float constant = vnStore->ConstantValue<float>(vnCns);
-            op1->ChangeOperConst(GT_CNS_DBL);
-            op1->gtDblCon.gtDconVal = constant;
-            // See comments for TYP_DOUBLE.
-            allowReverse = (_isnan(constant) == 0);
+            op1->ChangeOperConst(GT_CNS_FLT);
+            op1->gtFltCon.gtFconVal = constant;
+
+            // Nothing can be equal to NaN. So if IL had "op1 == NaN", then we already made op1 NaN,
+            // which will yield a false correctly. Instead if IL had "op1 != NaN", then we already
+            // made op1 NaN which will yield a true correctly. Note that this is irrespective of the
+            // assertion we have made.
+            allowReverse = (_isnanf(constant) == 0);
         }
         else if (op1->TypeGet() == TYP_REF)
         {
@@ -3149,7 +3198,20 @@ GenTreePtr Compiler::optAssertionPropGlobal_RelOp(ASSERT_VALARG_TP assertions,
 
         // If floating point, don't just substitute op1 with op2, this won't work if
         // op2 is NaN. Just turn it into a "true" or "false" yielding expression.
-        if (op1->TypeGet() == TYP_DOUBLE || op1->TypeGet() == TYP_FLOAT)
+        if (op1->TypeGet() == TYP_FLOAT)
+        {
+            // Note we can't trust the OAK_EQUAL as the value could end up being a NaN
+            // violating the assertion. However, we create OAK_EQUAL assertions for floating
+            // point only on JTrue nodes, so if the condition held earlier, it will hold
+            // now. We don't create OAK_EQUAL assertion on floating point from GT_ASG
+            // because we depend on value num which would constant prop the NaN.
+            lvaTable[op2->gtLclVar.gtLclNum].decRefCnts(compCurBB->getBBWeight(this), this);
+            op1->ChangeOperConst(GT_CNS_FLT);
+            op1->gtFltCon.gtFconVal = 0;
+            op2->ChangeOperConst(GT_CNS_FLT);
+            op2->gtFltCon.gtFconVal = 0;
+        }
+        else if (op1->TypeGet() == TYP_DOUBLE)
         {
             // Note we can't trust the OAK_EQUAL as the value could end up being a NaN
             // violating the assertion. However, we create OAK_EQUAL assertions for floating
@@ -4256,6 +4318,12 @@ void Compiler::optImpliedByCopyAssertion(AssertionDsc* copyAssertion, AssertionD
 
             case O2K_CONST_LONG:
                 usable = op1MatchesCopy && (impAssertion->op2.lconVal == depAssertion->op2.lconVal);
+                break;
+
+            case O2K_CONST_FLOAT:
+                // Exact memory match because of positive and negative zero
+                usable = op1MatchesCopy &&
+                         (memcmp(&impAssertion->op2.fconVal, &depAssertion->op2.fconVal, sizeof(float)) == 0);
                 break;
 
             case O2K_CONST_DOUBLE:

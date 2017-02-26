@@ -132,6 +132,7 @@ inline ti_types JITtype2tiType(CorInfoType type)
 
     assert(g_ti_types_map[CORINFO_TYPE_CLASS] == TI_REF);
     assert(g_ti_types_map[CORINFO_TYPE_BYREF] == TI_ERROR);
+    assert(g_ti_types_map[CORINFO_TYPE_FLOAT] == TI_FLOAT);
     assert(g_ti_types_map[CORINFO_TYPE_DOUBLE] == TI_DOUBLE);
     assert(g_ti_types_map[CORINFO_TYPE_VALUECLASS] == TI_STRUCT);
     assert(g_ti_types_map[CORINFO_TYPE_STRING] == TI_REF);
@@ -522,7 +523,11 @@ public:
                 break;
 
             case TI_FLOAT:
+#if FEATURE_X87_DOUBLES
                 m_flags = TI_DOUBLE;
+#else
+                m_flags = TI_FLOAT;
+#endif // FEATURE_X87_DOUBLES
                 break;
             default:
                 break;
@@ -667,7 +672,7 @@ public:
         // I1, I2, Boolean, character etc. cannot exist plainly -
         // everything is at least an I4
 
-        return (Type == TI_INT || Type == TI_LONG || Type == TI_DOUBLE);
+        return (Type == TI_INT || Type == TI_LONG || Type == TI_FLOAT || Type == TI_DOUBLE);
     }
 
     // Returns whether this is an integer

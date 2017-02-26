@@ -3366,37 +3366,7 @@ ValueNum ValueNumStore::EvalMathFuncUnary(var_types typ, CorInfoIntrinsics gtMat
     {
         assert(varTypeIsFloating(TypeOfVN(arg0VN)));
 
-        if (typ == TYP_DOUBLE)
-        {
-            // Both operand and its result must be of the same floating point type.
-            assert(typ == TypeOfVN(arg0VN));
-            double arg0Val = GetConstantDouble(arg0VN);
-
-            double res = 0.0;
-            switch (gtMathFN)
-            {
-                case CORINFO_INTRINSIC_Sin:
-                    res = sin(arg0Val);
-                    break;
-                case CORINFO_INTRINSIC_Cos:
-                    res = cos(arg0Val);
-                    break;
-                case CORINFO_INTRINSIC_Sqrt:
-                    res = sqrt(arg0Val);
-                    break;
-                case CORINFO_INTRINSIC_Abs:
-                    res = fabs(arg0Val);
-                    break;
-                case CORINFO_INTRINSIC_Round:
-                    res = FloatingPointUtils::round(arg0Val);
-                    break;
-                default:
-                    unreached(); // the above are the only math intrinsics at the time of this writing.
-            }
-
-            return VNForDoubleCon(res);
-        }
-        else if (typ == TYP_FLOAT)
+        if (typ == TYP_FLOAT)
         {
             // Both operand and its result must be of the same floating point type.
             assert(typ == TypeOfVN(arg0VN));
@@ -3426,6 +3396,36 @@ ValueNum ValueNumStore::EvalMathFuncUnary(var_types typ, CorInfoIntrinsics gtMat
 
             return VNForFloatCon(res);
         }
+        else if (typ == TYP_DOUBLE)
+        {
+            // Both operand and its result must be of the same floating point type.
+            assert(typ == TypeOfVN(arg0VN));
+            double arg0Val = GetConstantDouble(arg0VN);
+
+            double res = 0.0;
+            switch (gtMathFN)
+            {
+                case CORINFO_INTRINSIC_Sin:
+                    res = sin(arg0Val);
+                    break;
+                case CORINFO_INTRINSIC_Cos:
+                    res = cos(arg0Val);
+                    break;
+                case CORINFO_INTRINSIC_Sqrt:
+                    res = sqrt(arg0Val);
+                    break;
+                case CORINFO_INTRINSIC_Abs:
+                    res = fabs(arg0Val);
+                    break;
+                case CORINFO_INTRINSIC_Round:
+                    res = FloatingPointUtils::round(arg0Val);
+                    break;
+                default:
+                    unreached(); // the above are the only math intrinsics at the time of this writing.
+            }
+
+            return VNForDoubleCon(res);
+        }
         else
         {
             // CORINFO_INTRINSIC_Round is currently the only intrinsic that takes floating-point arguments
@@ -3438,16 +3438,16 @@ ValueNum ValueNumStore::EvalMathFuncUnary(var_types typ, CorInfoIntrinsics gtMat
 
             switch (TypeOfVN(arg0VN))
             {
-                case TYP_DOUBLE:
-                {
-                    double arg0Val = GetConstantDouble(arg0VN);
-                    res            = int(FloatingPointUtils::round(arg0Val));
-                    break;
-                }
                 case TYP_FLOAT:
                 {
                     float arg0Val = GetConstantSingle(arg0VN);
                     res           = int(FloatingPointUtils::round(arg0Val));
+                    break;
+                }
+                case TYP_DOUBLE:
+                {
+                    double arg0Val = GetConstantDouble(arg0VN);
+                    res            = int(FloatingPointUtils::round(arg0Val));
                     break;
                 }
                 default:
@@ -5092,7 +5092,7 @@ void Compiler::fgValueNumberTreeConst(GenTreePtr tree)
             break;
 
         case TYP_FLOAT:
-            tree->gtVNPair.SetBoth(vnStore->VNForFloatCon((float)tree->gtDblCon.gtDconVal));
+            tree->gtVNPair.SetBoth(vnStore->VNForFloatCon(tree->gtFltCon.gtFconVal));
             break;
         case TYP_DOUBLE:
             tree->gtVNPair.SetBoth(vnStore->VNForDoubleCon(tree->gtDblCon.gtDconVal));

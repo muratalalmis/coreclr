@@ -1710,7 +1710,8 @@ private:
 
 #ifndef LEGACY_BACKEND
     CORINFO_FIELD_HANDLE emitLiteralConst(ssize_t cnsValIn, emitAttr attr = EA_8BYTE);
-    CORINFO_FIELD_HANDLE emitFltOrDblConst(GenTreeDblCon* tree, emitAttr attr = EA_UNKNOWN);
+    CORINFO_FIELD_HANDLE emitFltConst(GenTreeFltCon* tree, emitAttr attr = EA_UNKNOWN);
+    CORINFO_FIELD_HANDLE emitDblConst(GenTreeDblCon* tree, emitAttr attr = EA_UNKNOWN);
     regNumber emitInsBinary(instruction ins, emitAttr attr, GenTree* dst, GenTree* src);
     regNumber emitInsTernary(instruction ins, emitAttr attr, GenTree* dst, GenTree* src1, GenTree* src2);
     void emitInsMov(instruction ins, emitAttr attr, GenTree* node);

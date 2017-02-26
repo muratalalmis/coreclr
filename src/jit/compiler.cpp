@@ -10075,6 +10075,11 @@ int cLeafIR(Compiler* comp, GenTree* tree)
             chars += printf("CONST(LONG)");
             break;
 
+        case GT_CNS_FLT:
+
+            chars += printf("CONST(FLOAT)");
+            break;
+
         case GT_CNS_DBL:
 
             chars += printf("CONST(DOUBLE)");

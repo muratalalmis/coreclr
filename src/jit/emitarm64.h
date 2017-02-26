@@ -462,6 +462,9 @@ static bool emitIns_valid_imm_for_mov(INT64 imm, emitAttr size);
 // true if this 'imm' can be encoded as a input operand to a vector movi instruction
 static bool emitIns_valid_imm_for_movi(INT64 imm, emitAttr size);
 
+// true if this 'immFlt' can be encoded as a input operand to a fmov instruction
+static bool emitIns_valid_imm_for_fmov(float immDbl);
+
 // true if this 'immDbl' can be encoded as a input operand to a fmov instruction
 static bool emitIns_valid_imm_for_fmov(double immDbl);
 

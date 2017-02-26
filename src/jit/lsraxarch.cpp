@@ -222,6 +222,7 @@ void Lowering::TreeNodeInfoInit(GenTree* tree)
             info->dstCount = 0;
             break;
 
+        case GT_CNS_FLT:
         case GT_CNS_DBL:
             info->srcCount = 0;
             info->dstCount = 1;

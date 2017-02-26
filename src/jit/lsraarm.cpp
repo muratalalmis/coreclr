@@ -877,22 +877,24 @@ void Lowering::TreeNodeInfoInit(GenTree* tree)
             info->dstCount = 0;
             break;
 
+        case GT_CNS_FLT:
+            info->srcCount = 0;
+            info->dstCount = 1;
+
+            assert(tree->TypeGet() == TYP_FLOAT);
+
+            // An int register for float constant
+            info->internalIntCount = 1;
+            break;
+
         case GT_CNS_DBL:
             info->srcCount = 0;
             info->dstCount = 1;
-            if (tree->TypeGet() == TYP_FLOAT)
-            {
-                // An int register for float constant
-                info->internalIntCount = 1;
-            }
-            else
-            {
-                // TYP_DOUBLE
-                assert(tree->TypeGet() == TYP_DOUBLE);
 
-                // Two int registers for double constant
-                info->internalIntCount = 2;
-            }
+            assert(tree->TypeGet() == TYP_DOUBLE);
+
+            // Two int registers for double constant
+            info->internalIntCount = 2;
             break;
 
         case GT_RETURN:

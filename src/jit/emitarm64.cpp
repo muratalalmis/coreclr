@@ -1998,6 +1998,15 @@ emitter::code_t emitter::emitInsCode(instruction ins, insFormat fmt)
 }
 
 // true if this 'imm' can be encoded as a input operand to a fmov instruction
+/*static*/ bool emitter::emitIns_valid_imm_for_fmov(float immFlt)
+{
+    if (canEncodeFloatImm8(immFlt))
+        return true;
+
+    return false;
+}
+
+// true if this 'imm' can be encoded as a input operand to a fmov instruction
 /*static*/ bool emitter::emitIns_valid_imm_for_fmov(double immDbl)
 {
     if (canEncodeFloatImm8(immDbl))
@@ -10926,10 +10935,10 @@ CORINFO_FIELD_HANDLE emitter::emitLiteralConst(ssize_t cnsValIn, emitAttr attr /
     return emitComp->eeFindJitDataOffs(cnum);
 }
 
-// Generates a float or double data section constant and returns field handle representing
+// Generates a float data section constant and returns field handle representing
 // the data offset to access the constant.  This is called by emitInsBinary() in case
-// of contained float of double constants.
-CORINFO_FIELD_HANDLE emitter::emitFltOrDblConst(GenTreeDblCon* tree, emitAttr attr /*=EA_UNKNOWN*/)
+// of contained float constants.
+CORINFO_FIELD_HANDLE emitter::emitFltConst(GenTreeFltCon* tree, emitAttr attr /*=EA_UNKNOWN*/)
 {
     if (attr == EA_UNKNOWN)
     {
@@ -10940,29 +10949,41 @@ CORINFO_FIELD_HANDLE emitter::emitFltOrDblConst(GenTreeDblCon* tree, emitAttr at
         assert(emitTypeSize(tree->TypeGet()) == attr);
     }
 
-    double constValue = tree->gtDblCon.gtDconVal;
-    void*  cnsAddr;
-    float  f;
-    bool   dblAlign;
-
-    if (attr == EA_4BYTE)
-    {
-        f        = forceCastToFloat(constValue);
-        cnsAddr  = &f;
-        dblAlign = false;
-    }
-    else
-    {
-        cnsAddr  = &constValue;
-        dblAlign = true;
-    }
+    assert(attr == EA_4BYTE);
+    float constValue = tree->gtFltCon.gtFconVal;
+    void* cnsAddr    = &constValue;
 
     // Access to inline data is 'abstracted' by a special type of static member
     // (produced by eeFindJitDataOffs) which the emitter recognizes as being a reference
     // to constant data, not a real static field.
 
-    UNATIVE_OFFSET cnsSize = (attr == EA_4BYTE) ? 4 : 8;
-    UNATIVE_OFFSET cnum    = emitDataConst(cnsAddr, cnsSize, dblAlign);
+    UNATIVE_OFFSET cnum = emitDataConst(cnsAddr, 4, false);
+    return emitComp->eeFindJitDataOffs(cnum);
+}
+
+// Generates a double data section constant and returns field handle representing
+// the data offset to access the constant.  This is called by emitInsBinary() in case
+// of contained double constants.
+CORINFO_FIELD_HANDLE emitter::emitDblConst(GenTreeDblCon* tree, emitAttr attr /*=EA_UNKNOWN*/)
+{
+    if (attr == EA_UNKNOWN)
+    {
+        attr = emitTypeSize(tree->TypeGet());
+    }
+    else
+    {
+        assert(emitTypeSize(tree->TypeGet()) == attr);
+    }
+
+    assert(attr == EA_8BYTE);
+    double constValue = tree->gtDblCon.gtDconVal;
+    void*  cnsAddr    = &constValue;
+
+    // Access to inline data is 'abstracted' by a special type of static member
+    // (produced by eeFindJitDataOffs) which the emitter recognizes as being a reference
+    // to constant data, not a real static field.
+
+    UNATIVE_OFFSET cnum = emitDataConst(cnsAddr, 8, true);
     return emitComp->eeFindJitDataOffs(cnum);
 }
 

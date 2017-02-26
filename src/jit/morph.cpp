@@ -608,6 +608,7 @@ OPTIMIZECAST:
             /* If the operand is a constant, we'll fold it */
             case GT_CNS_INT:
             case GT_CNS_LNG:
+            case GT_CNS_FLT:
             case GT_CNS_DBL:
             case GT_CNS_STR:
             {
@@ -679,19 +680,30 @@ OPTIMIZECAST:
                             /* Change the types of oper and commaOp2 to TYP_LONG */
                             oper->gtType = commaOp2->gtType = TYP_LONG;
                         }
-                        else if (varTypeIsFloating(tree->gtType))
+                        else if (tree->gtType == TYP_FLOAT)
+                        {
+                            commaOp2->ChangeOperConst(GT_CNS_FLT);
+                            commaOp2->gtFltCon.gtFconVal = 0.0f;
+
+// Change the types of oper and commaOp2
+#if FEATURE_X87_DOUBLES
+                            // X87 promotes everything to TYP_DOUBLE
+                            const var_types newTyp = TYP_DOUBLE;
+#else
+                            // But other's are a little more precise
+                            const var_types newTyp = TYP_FLOAT;
+#endif // FEATURE_X87_DOUBLES
+
+                            oper->gtType = commaOp2->gtType = newTyp;
+                        }
+                        else if (tree->gtType == TYP_DOUBLE)
                         {
                             commaOp2->ChangeOperConst(GT_CNS_DBL);
                             commaOp2->gtDblCon.gtDconVal = 0.0;
                             // Change the types of oper and commaOp2
                             // X87 promotes everything to TYP_DOUBLE
                             // But other's are a little more precise
-                            const var_types newTyp
-#if FEATURE_X87_DOUBLES
-                                = TYP_DOUBLE;
-#else  // FEATURE_X87_DOUBLES
-                                = tree->gtType;
-#endif // FEATURE_X87_DOUBLES
+                            const var_types newTyp = TYP_DOUBLE;
                             oper->gtType = commaOp2->gtType = newTyp;
                         }
                         else
@@ -1353,7 +1365,7 @@ void fgArgInfo::RemorphStkArg(
         }
     }
 #else
-    curArgTabEntry->node = node;
+    curArgTabEntry->node                           = node;
 #endif
 
     nextSlotNum += numSlots;
@@ -9134,7 +9146,16 @@ GenTreePtr Compiler::fgMorphInitBlock(GenTreePtr tree)
                     /* Change the types of srcCopy to TYP_LONG */
                     srcCopy->gtType = TYP_LONG;
                 }
-                else if (varTypeIsFloating(dest->gtType))
+                else if (dest->gtType == TYP_FLOAT)
+                {
+                    srcCopy->ChangeOperConst(GT_CNS_FLT);
+                    // setup the bit pattern
+                    memset(&srcCopy->gtFltCon.gtFconVal, (int)initVal->gtIntCon.gtIconVal,
+                           sizeof(srcCopy->gtFltCon.gtFconVal));
+                    /* Change the types of srcCopy to TYP_FLOAT */
+                    srcCopy->gtType = TYP_FLOAT;
+                }
+                else if (dest->gtType == TYP_DOUBLE)
                 {
                     srcCopy->ChangeOperConst(GT_CNS_DBL);
                     // setup the bit pattern
@@ -13386,7 +13407,14 @@ GenTreePtr Compiler::fgMorphSmpOp(GenTreePtr tree, MorphAddrContext* mac)
                                 /* Change the types of oper and commaOp2 to TYP_LONG */
                                 op1->gtType = commaOp2->gtType = TYP_LONG;
                             }
-                            else if (varTypeIsFloating(typ))
+                            else if (typ == TYP_FLOAT)
+                            {
+                                commaOp2->ChangeOperConst(GT_CNS_FLT);
+                                commaOp2->gtFltCon.gtFconVal = 0.0f;
+                                /* Change the types of oper and commaOp2 to TYP_FLOAT */
+                                op1->gtType = commaOp2->gtType = TYP_FLOAT;
+                            }
+                            else if (typ == TYP_DOUBLE)
                             {
                                 commaOp2->ChangeOperConst(GT_CNS_DBL);
                                 commaOp2->gtDblCon.gtDconVal = 0.0;
@@ -13899,7 +13927,15 @@ GenTree* Compiler::fgMorphSmpOpOptional(GenTreeOp* tree)
                                 break;
                             }
 
-                            op1 = gtNewDconNode(1.0);
+                            if (tree->TypeGet() == TYP_FLOAT)
+                            {
+                                op1 = gtNewFconNode(1.0f);
+                            }
+                            else
+                            {
+                                assert(tree->TypeGet() == TYP_DOUBLE);
+                                op1 = gtNewDconNode(1.0);
+                            }
 
                             /* Now make the "*=" node */
 

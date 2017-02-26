@@ -3560,13 +3560,13 @@ instruction CodeGen::ins_FloatSqrt(var_types type)
 {
     instruction ins = INS_invalid;
 
-    if (type == TYP_DOUBLE)
-    {
-        ins = INS_sqrtsd;
-    }
-    else if (type == TYP_FLOAT)
+    if (type == TYP_FLOAT)
     {
         ins = INS_sqrtss;
+    }
+    else if (type == TYP_DOUBLE)
+    {
+        ins = INS_sqrtsd;
     }
     else
     {

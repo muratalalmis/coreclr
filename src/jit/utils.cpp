@@ -554,6 +554,7 @@ DECODE_OPCODE:
         {
             __int64 iOp;
             double  dOp;
+            float   fOp;
             int     jOp;
             DWORD   jOp2;
 
@@ -593,13 +594,13 @@ DECODE_OPCODE:
                     break;
 
                 case ShortInlineR:
-                    dOp = getR4LittleEndian(opcodePtr);
-                    goto FLT_OP;
+                    fOp = getR4LittleEndian(opcodePtr);
+                    dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
+                    printf(" %-12s %f", opcodeNames[opcode], fOp);
+                    break;
+
                 case InlineR:
                     dOp = getR8LittleEndian(opcodePtr);
-                    goto FLT_OP;
-
-                FLT_OP:
                     dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
                     printf(" %-12s %f", opcodeNames[opcode], dOp);
                     break;

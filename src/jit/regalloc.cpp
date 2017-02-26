@@ -2017,22 +2017,36 @@ regMaskTP Compiler::rpPredictTreeRegUse(GenTreePtr   tree,
         switch (oper)
         {
 #ifdef _TARGET_ARM_
+            case GT_CNS_FLT:
+                assert(type == TYP_FLOAT);
+
+                // Codegen for floating point constants on the ARM is currently
+                // movw/movt    rT1, <bits>
+                //  vmov.i2f    dT0, rT1
+                //
+                // These integer register(s) immediately die
+                tmpMask = rpPredictRegPick(TYP_INT, PREDICT_REG, lockedRegs | rsvdRegs);
+
+                // We also need a floating point register that we keep
+                //
+                if (predictReg == PREDICT_NONE)
+                    predictReg = PREDICT_SCRATCH_REG;
+
+                regMask          = rpPredictRegPick(type, predictReg, lockedRegs | rsvdRegs);
+                tree->gtUsedRegs = regMask | tmpMask;
+                goto RETURN_CHECK;
+
             case GT_CNS_DBL:
+                assert(type == TYP_DOUBLE);
+
                 // Codegen for floating point constants on the ARM is currently
                 // movw/movt    rT1, <lo32 bits>
                 // movw/movt    rT2, <hi32 bits>
                 //  vmov.i2d    dT0, rT1,rT2
                 //
-                // For TYP_FLOAT one integer register is required
-                //
                 // These integer register(s) immediately die
                 tmpMask = rpPredictRegPick(TYP_INT, PREDICT_REG, lockedRegs | rsvdRegs);
-                if (type == TYP_DOUBLE)
-                {
-                    // For TYP_DOUBLE a second integer register is required
-                    //
-                    tmpMask |= rpPredictRegPick(TYP_INT, PREDICT_REG, lockedRegs | rsvdRegs | tmpMask);
-                }
+                tmpMask |= rpPredictRegPick(TYP_INT, PREDICT_REG, lockedRegs | rsvdRegs | tmpMask);
 
                 // We also need a floating point register that we keep
                 //
