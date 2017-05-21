@@ -21,7 +21,7 @@ namespace System
 
     [Serializable]
     [CLSCompliant(false), System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct UIntPtr : IComparable, ISerializable
+    public struct UIntPtr : IComparable, IFormattable, ISerializable
             , IComparable<uint>, IComparable<UIntPtr>, IEquatable<uint>, IEquatable<UIntPtr>
     {
         unsafe private void* _value;
@@ -186,6 +186,28 @@ namespace System
             return ToUInt64().ToString(format, CultureInfo.InvariantCulture);
 #else // !BIT64 (32)
             return ToUInt32().ToString(format, CultureInfo.InvariantCulture);
+#endif
+        }
+
+        public string ToString(IFormatProvider provider)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToUInt64().ToString(provider);
+#else // !BIT64 (32)
+            return ToUInt32().ToString(provider);
+#endif
+        }
+
+        public string ToString(string format, IFormatProvider provider)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToUInt64().ToString(format, provider);
+#else // !BIT64 (32)
+            return ToUInt32().ToString(format, provider);
 #endif
         }
 

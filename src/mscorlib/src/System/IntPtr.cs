@@ -21,7 +21,7 @@ namespace System
 
     [Serializable]
     [System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct IntPtr : IComparable, ISerializable
+    public struct IntPtr : IComparable, IFormattable, ISerializable
             , IComparable<int>, IComparable<IntPtr>, IEquatable<int>, IEquatable<IntPtr>
     {
         unsafe private void* _value; // The compiler treats void* closest to uint hence explicit casts are required to preserve int behavior
@@ -202,6 +202,28 @@ namespace System
             return ToInt64().ToString(format, CultureInfo.InvariantCulture);
 #else // !BIT64 (32)
             return ToInt32().ToString(format, CultureInfo.InvariantCulture);
+#endif
+        }
+
+        public string ToString(IFormatProvider provider)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToInt64().ToString(provider);
+#else // !BIT64 (32)
+            return ToInt32().ToString(provider);
+#endif
+        }
+
+        public string ToString(string format, IFormatProvider provider)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToInt64().ToString(format, provider);
+#else // !BIT64 (32)
+            return ToInt32().ToString(format, provider);
 #endif
         }
 
