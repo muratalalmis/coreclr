@@ -28,6 +28,18 @@ namespace System
 
         public static readonly IntPtr Zero = new IntPtr(0);
 
+#if BIT64
+        public static readonly IntPtr MaxValue = new IntPtr(long.MaxValue);
+#else // !BIT64 (32)
+        public static readonly IntPtr MaxValue = new IntPtr(int.MaxValue);
+#endif
+
+#if BIT64
+        public static readonly IntPtr MinValue = new IntPtr(long.MinValue);
+#else // !BIT64 (32)
+        public static readonly IntPtr MinValue = new IntPtr(int.MinValue);
+#endif
+
         // fast way to compare IntPtr to (IntPtr)0 while IntPtr.Zero doesn't work due to slow statics access
         [Pure]
         internal unsafe bool IsNull()

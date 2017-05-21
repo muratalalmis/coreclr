@@ -28,6 +28,18 @@ namespace System
 
         public static readonly UIntPtr Zero = new UIntPtr(0);
 
+#if BIT64
+        public static readonly UIntPtr MaxValue = new IntPtr(ulong.MaxValue);
+#else // !BIT64 (32)
+        public static readonly UIntPtr MaxValue = new IntPtr(uint.MaxValue);
+#endif
+
+#if BIT64
+        public static readonly UIntPtr MinValue = new IntPtr(ulong.MinValue);
+#else // !BIT64 (32)
+        public static readonly UIntPtr MinValue = new IntPtr(uint.MinValue);
+#endif
+
         [System.Runtime.Versioning.NonVersionable]
         public unsafe UIntPtr(uint value)
         {
