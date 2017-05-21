@@ -14,20 +14,18 @@
 namespace System
 {
     using System;
-    using System.Globalization;
-    using System.Runtime;
-    using System.Runtime.Serialization;
-    using System.Runtime.CompilerServices;
-    using System.Runtime.ConstrainedExecution;
-    using System.Security;
     using System.Diagnostics.Contracts;
+    using System.Globalization;
+    using System.Runtime.Serialization;
+    using System.Security;
 
     [Serializable]
+    [System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
     public struct IntPtr : IEquatable<IntPtr>, ISerializable
     {
         unsafe private void* _value; // The compiler treats void* closest to uint hence explicit casts are required to preserve int behavior
 
-        public static readonly IntPtr Zero;
+        public static readonly IntPtr Zero = new IntPtr(0);
 
         // fast way to compare IntPtr to (IntPtr)0 while IntPtr.Zero doesn't work due to slow statics access
         [Pure]
@@ -42,7 +40,7 @@ namespace System
 #if BIT64
             _value = (void*)(long)value;
 #else // !BIT64 (32)
-                _value = (void *)value;
+            _value = (void*)value;
 #endif
         }
 
@@ -52,7 +50,7 @@ namespace System
 #if BIT64
             _value = (void*)value;
 #else // !BIT64 (32)
-                _value = (void *)checked((int)value);
+            _value = (void*)checked((int)value);
 #endif
         }
 
@@ -67,10 +65,16 @@ namespace System
         {
             long l = info.GetInt64("value");
 
-            if (Size == 4 && (l > Int32.MaxValue || l < Int32.MinValue))
+#if BIT64
+            Debug.Assert(Size == 8);
+#else // !BIT64 (32)
+            Debug.Assert(Size == 4);
+
+            if (l > int.MaxValue || l < int.MinValue)
             {
                 throw new ArgumentException(SR.Serialization_InvalidPtrValue);
             }
+#endif
 
             _value = (void*)l;
         }
@@ -82,34 +86,27 @@ namespace System
                 throw new ArgumentNullException(nameof(info));
             }
             Contract.EndContractBlock();
-#if BIT64
-            info.AddValue("value", (long)(_value));
-#else // !BIT64 (32)
-                info.AddValue("value", (long)((int)_value));
-#endif
+
+            info.AddValue("value", ToInt64());
         }
 
-        public unsafe override bool Equals(Object obj)
+        public override bool Equals(object obj)
         {
-            if (obj is IntPtr)
-            {
-                return (_value == ((IntPtr)obj)._value);
-            }
-            return false;
+            return (obj is IntPtr n) && Equals(n);
         }
 
-        unsafe bool IEquatable<IntPtr>.Equals(IntPtr other)
+        public bool Equals(IntPtr other)
         {
-            return _value == other._value;
+            return (this == other);
         }
 
-        public unsafe override int GetHashCode()
+        public override int GetHashCode()
         {
 #if BIT64
-            long l = (long)_value;
-            return (unchecked((int)l) ^ (int)(l >> 32));
+            long l = ToInt64();
+            return unchecked((int)l ^ (int)(l >> 32));
 #else // !BIT64 (32)
-            return unchecked((int)_value);
+            return ToInt32();
 #endif
         }
 
@@ -117,10 +114,10 @@ namespace System
         public unsafe int ToInt32()
         {
 #if BIT64
-            long l = (long)_value;
-            return checked((int)l);
+            long value = (long)_value;
+            return checked((int)value);
 #else // !BIT64 (32)
-                return (int)_value;
+            return (int)_value;
 #endif
         }
 
@@ -130,30 +127,31 @@ namespace System
 #if BIT64
             return (long)_value;
 #else // !BIT64 (32)
-                return (long)(int)_value;
+            return (long)(int)_value;
 #endif
         }
 
-        public unsafe override String ToString()
+        public override string ToString()
         {
-#if BIT64
-            return ((long)_value).ToString(CultureInfo.InvariantCulture);
-#else // !BIT64 (32)
-                return ((int)_value).ToString(CultureInfo.InvariantCulture);
-#endif
-        }
-
-        public unsafe String ToString(String format)
-        {
-            Contract.Ensures(Contract.Result<String>() != null);
+            Contract.Ensures(Contract.Result<string>() != null);
 
 #if BIT64
-            return ((long)_value).ToString(format, CultureInfo.InvariantCulture);
+            return ToInt64().ToString(CultureInfo.InvariantCulture);
 #else // !BIT64 (32)
-                return ((int)_value).ToString(format, CultureInfo.InvariantCulture);
+            return ToInt32().ToString(CultureInfo.InvariantCulture);
 #endif
         }
 
+        public string ToString(string format)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToInt64().ToString(format, CultureInfo.InvariantCulture);
+#else // !BIT64 (32)
+            return ToInt32().ToString(format, CultureInfo.InvariantCulture);
+#endif
+        }
 
         [System.Runtime.Versioning.NonVersionable]
         public static explicit operator IntPtr(int value)
@@ -176,7 +174,7 @@ namespace System
 
         [CLSCompliant(false)]
         [System.Runtime.Versioning.NonVersionable]
-        public static unsafe explicit operator void* (IntPtr value)
+        public static unsafe explicit operator void*(IntPtr value)
         {
             return value._value;
         }
@@ -184,34 +182,25 @@ namespace System
         [System.Runtime.Versioning.NonVersionable]
         public unsafe static explicit operator int(IntPtr value)
         {
-#if BIT64
-            long l = (long)value._value;
-            return checked((int)l);
-#else // !BIT64 (32)
-                return (int)value._value;
-#endif
+            return value.ToInt32();
         }
 
         [System.Runtime.Versioning.NonVersionable]
         public unsafe static explicit operator long(IntPtr value)
         {
-#if BIT64
-            return (long)value._value;
-#else // !BIT64 (32)
-                return (long)(int)value._value;
-#endif
+            return value.ToInt64();
         }
 
         [System.Runtime.Versioning.NonVersionable]
-        public unsafe static bool operator ==(IntPtr value1, IntPtr value2)
+        public unsafe static bool operator ==(IntPtr left, IntPtr right)
         {
-            return value1._value == value2._value;
+            return left._value == right._value;
         }
 
         [System.Runtime.Versioning.NonVersionable]
-        public unsafe static bool operator !=(IntPtr value1, IntPtr value2)
+        public unsafe static bool operator !=(IntPtr left, IntPtr right)
         {
-            return value1._value != value2._value;
+            return left._value != right._value;
         }
 
         [System.Runtime.Versioning.NonVersionable]
@@ -226,7 +215,7 @@ namespace System
 #if BIT64
             return new IntPtr(pointer.ToInt64() + offset);
 #else // !BIT64 (32)
-                return new IntPtr(pointer.ToInt32() + offset);
+            return new IntPtr(pointer.ToInt32() + offset);
 #endif
         }
 
@@ -242,7 +231,7 @@ namespace System
 #if BIT64
             return new IntPtr(pointer.ToInt64() - offset);
 #else // !BIT64 (32)
-                return new IntPtr(pointer.ToInt32() - offset);
+            return new IntPtr(pointer.ToInt32() - offset);
 #endif
         }
 
@@ -255,11 +244,10 @@ namespace System
 #if BIT64
                 return 8;
 #else // !BIT64 (32)
-                    return 4;
+                return 4;
 #endif
             }
         }
-
 
         [CLSCompliant(false)]
         [System.Runtime.Versioning.NonVersionable]
