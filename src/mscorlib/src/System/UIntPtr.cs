@@ -21,7 +21,7 @@ namespace System
 
     [Serializable]
     [CLSCompliant(false), System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct UIntPtr : IEquatable<UIntPtr>, ISerializable
+    public struct UIntPtr : IEquatable<uint>, IEquatable<UIntPtr>, ISerializable
     {
         unsafe private void* _value;
 
@@ -81,7 +81,13 @@ namespace System
 
         public override bool Equals(object obj)
         {
-            return (obj is UIntPtr n) && Equals(n);
+            return (obj is uint i) && Equals(i)
+                || (obj is UIntPtr n) && Equals(n);
+        }
+
+        public bool Equals(uint other)
+        {
+            return (this == other);
         }
 
         public bool Equals(UIntPtr other)
@@ -176,9 +182,21 @@ namespace System
         }
 
         [System.Runtime.Versioning.NonVersionable]
+        public unsafe static bool operator ==(UIntPtr left, uint right)
+        {
+            return (left == (UIntPtr)right);
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
         public unsafe static bool operator ==(UIntPtr left, UIntPtr right)
         {
             return left._value == right._value;
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
+        public unsafe static bool operator !=(UIntPtr left, uint right)
+        {
+            return (left != (UIntPtr)right);
         }
 
         [System.Runtime.Versioning.NonVersionable]

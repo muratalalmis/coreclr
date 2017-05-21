@@ -21,7 +21,7 @@ namespace System
 
     [Serializable]
     [System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct IntPtr : IEquatable<IntPtr>, ISerializable
+    public struct IntPtr : IEquatable<int>, IEquatable<IntPtr>, ISerializable
     {
         unsafe private void* _value; // The compiler treats void* closest to uint hence explicit casts are required to preserve int behavior
 
@@ -92,7 +92,13 @@ namespace System
 
         public override bool Equals(object obj)
         {
-            return (obj is IntPtr n) && Equals(n);
+            return (obj is int i) && Equals(i)
+                || (obj is IntPtr n) && Equals(n);
+        }
+
+        public bool Equals(int other)
+        {
+            return (this == other);
         }
 
         public bool Equals(IntPtr other)
@@ -192,9 +198,21 @@ namespace System
         }
 
         [System.Runtime.Versioning.NonVersionable]
+        public static bool operator ==(IntPtr left, int right)
+        {
+            return (left == (IntPtr)right);
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
         public unsafe static bool operator ==(IntPtr left, IntPtr right)
         {
             return left._value == right._value;
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
+        public unsafe static bool operator !=(IntPtr left, int right)
+        {
+            return (left != (IntPtr)right);
         }
 
         [System.Runtime.Versioning.NonVersionable]
