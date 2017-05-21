@@ -21,7 +21,8 @@ namespace System
 
     [Serializable]
     [CLSCompliant(false), System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct UIntPtr : IEquatable<uint>, IEquatable<UIntPtr>, ISerializable
+    public struct UIntPtr : IComparable, ISerializable
+            , IComparable<uint>, IComparable<UIntPtr>, IEquatable<uint>, IEquatable<UIntPtr>
     {
         unsafe private void* _value;
 
@@ -77,6 +78,51 @@ namespace System
             Contract.EndContractBlock();
 
             info.AddValue("value", ToUInt64());
+        }
+
+        // Compares this object to another object, returning an integer that indicates the relationship. 
+        // null is considered to be less than any instance.
+        // If object is not of type uint or UIntPtr, this method throws an ArgumentException.
+        public int CompareTo(object value)
+        {
+            if (value == null)
+            {
+                return 1;
+            }
+            else if (value is uint i)
+            {
+                return CompareTo(i);
+            }
+            else if (value is UIntPtr n)
+            {
+                return CompareTo(n);
+            }
+            else
+            {
+                throw new ArgumentException(SR.Arg_MustBeUInt32OrUIntPtr);
+            }
+        }
+
+        public int CompareTo(uint value)
+        {
+            return CompareTo((UIntPtr)value);
+        }
+
+        public unsafe int CompareTo(UIntPtr value)
+        {
+            // Need to use compare because subtraction will wrap to positive for very large neg numbers, etc.
+            if (_value < value._value)
+            {
+                return -1;
+            }
+            else if (_value > value._value)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
         }
 
         public override bool Equals(object obj)

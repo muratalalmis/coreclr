@@ -448,6 +448,9 @@
   <data name="Arg_MustBeInt32" xml:space="preserve">
     <value>Object must be of type Int32.</value>
   </data>
+  <data name="Arg_MustBeInt32OrIntPtr" xml:space="preserve">
+    <value>Object must be of type Int32 or IntPtr.</value>
+  </data>
   <data name="Arg_MustBeInt64" xml:space="preserve">
     <value>Object must be of type Int64.</value>
   </data>
@@ -486,6 +489,9 @@
   </data>
   <data name="Arg_MustBeUInt32" xml:space="preserve">
     <value>Object must be of type UInt32.</value>
+  </data>
+  <data name="Arg_MustBeUInt32OrUIntPtr" xml:space="preserve">
+    <value>Object must be of type UInt32 or UIntPtr.</value>
   </data>
   <data name="Arg_MustBeUInt64" xml:space="preserve">
     <value>Object must be of type UInt64.</value>

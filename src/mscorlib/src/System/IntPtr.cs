@@ -21,7 +21,8 @@ namespace System
 
     [Serializable]
     [System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
-    public struct IntPtr : IEquatable<int>, IEquatable<IntPtr>, ISerializable
+    public struct IntPtr : IComparable, ISerializable
+            , IComparable<int>, IComparable<IntPtr>, IEquatable<int>, IEquatable<IntPtr>
     {
         unsafe private void* _value; // The compiler treats void* closest to uint hence explicit casts are required to preserve int behavior
 
@@ -88,6 +89,51 @@ namespace System
             Contract.EndContractBlock();
 
             info.AddValue("value", ToInt64());
+        }
+
+        // Compares this object to another object, returning an integer that indicates the relationship. 
+        // null is considered to be less than any instance.
+        // If object is not of type int or IntPtr, this method throws an ArgumentException.
+        public int CompareTo(object value)
+        {
+            if (value == null)
+            {
+                return 1;
+            }
+            else if (value is int i)
+            {
+                return CompareTo(i);
+            }
+            else if (value is IntPtr n)
+            {
+                return CompareTo(n);
+            }
+            else
+            {
+                throw new ArgumentException(SR.Arg_MustBeInt32OrIntPtr);
+            }
+        }
+
+        public int CompareTo(int value)
+        {
+            return CompareTo((IntPtr)value);
+        }
+
+        public unsafe int CompareTo(IntPtr value)
+        {
+            // Need to use compare because subtraction will wrap to positive for very large neg numbers, etc.
+            if (_value < value._value)
+            {
+                return -1;
+            }
+            else if (_value > value._value)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
         }
 
         public override bool Equals(object obj)
