@@ -14,19 +14,18 @@
 namespace System
 {
     using System;
+    using System.Diagnostics.Contracts;
     using System.Globalization;
     using System.Runtime.Serialization;
     using System.Security;
-    using System.Diagnostics.Contracts;
 
     [Serializable]
-    [CLSCompliant(false)]
+    [CLSCompliant(false), System.Runtime.InteropServices.StructLayout(LayoutKind.Sequential)]
     public struct UIntPtr : IEquatable<UIntPtr>, ISerializable
     {
         unsafe private void* _value;
 
-        public static readonly UIntPtr Zero;
-
+        public static readonly UIntPtr Zero = new UIntPtr(0);
 
         [System.Runtime.Versioning.NonVersionable]
         public unsafe UIntPtr(uint value)
@@ -39,7 +38,7 @@ namespace System
         {
 #if BIT64
             _value = (void*)value;
-#else // 32
+#else // !BIT64 (32)
             _value = (void*)checked((uint)value);
 #endif
         }
@@ -55,10 +54,16 @@ namespace System
         {
             ulong l = info.GetUInt64("value");
 
-            if (Size == 4 && l > UInt32.MaxValue)
+#if BIT64
+            Debug.Assert(Size == 8);
+#else // !BIT64 (32)
+            Debug.Assert(Size == 4);
+
+            if (l > uint.MaxValue)
             {
                 throw new ArgumentException(SR.Serialization_InvalidPtrValue);
             }
+#endif
 
             _value = (void*)l;
         }
@@ -70,30 +75,27 @@ namespace System
                 throw new ArgumentNullException(nameof(info));
             }
             Contract.EndContractBlock();
-            info.AddValue("value", (ulong)_value);
+
+            info.AddValue("value", ToUInt64());
         }
 
-        public unsafe override bool Equals(Object obj)
+        public override bool Equals(object obj)
         {
-            if (obj is UIntPtr)
-            {
-                return (_value == ((UIntPtr)obj)._value);
-            }
-            return false;
+            return (obj is UIntPtr n) && Equals(n);
         }
 
-        unsafe bool IEquatable<UIntPtr>.Equals(UIntPtr other)
+        public bool Equals(UIntPtr other)
         {
-            return _value == other._value;
+            return (this == other);
         }
 
-        public unsafe override int GetHashCode()
+        public override int GetHashCode()
         {
 #if BIT64
-            ulong l = (ulong)_value;
-            return (unchecked((int)l) ^ (int)(l >> 32));
-#else // 32
-            return unchecked((int)_value);
+            ulong l = ToUInt64();
+            return unchecked((int)l ^ (int)(l >> 32));
+#else // !BIT64 (32)
+            return ToInt32();
 #endif
         }
 
@@ -102,7 +104,7 @@ namespace System
         {
 #if BIT64
             return checked((uint)_value);
-#else // 32
+#else // !BIT64 (32)
             return (uint)_value;
 #endif
         }
@@ -113,14 +115,25 @@ namespace System
             return (ulong)_value;
         }
 
-        public unsafe override String ToString()
+        public override string ToString()
         {
-            Contract.Ensures(Contract.Result<String>() != null);
+            Contract.Ensures(Contract.Result<string>() != null);
 
 #if BIT64
-            return ((ulong)_value).ToString(CultureInfo.InvariantCulture);
-#else // 32
-            return ((uint)_value).ToString(CultureInfo.InvariantCulture);
+            return ToUInt64().ToString(CultureInfo.InvariantCulture);
+#else // !BIT64 (32)
+            return ToUInt32().ToString(CultureInfo.InvariantCulture);
+#endif
+        }
+
+        public string ToString(string format)
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+#if BIT64
+            return ToUInt64().ToString(format, CultureInfo.InvariantCulture);
+#else // !BIT64 (32)
+            return ToUInt32().ToString(format, CultureInfo.InvariantCulture);
 #endif
         }
 
@@ -136,23 +149,7 @@ namespace System
             return new UIntPtr(value);
         }
 
-        [System.Runtime.Versioning.NonVersionable]
-        public unsafe static explicit operator uint(UIntPtr value)
-        {
-#if BIT64
-            return checked((uint)value._value);
-#else // 32
-            return (uint)value._value;
-#endif
-        }
-
-        [System.Runtime.Versioning.NonVersionable]
-        public unsafe static explicit operator ulong(UIntPtr value)
-        {
-            return (ulong)value._value;
-        }
-
-        [CLSCompliant(false)]
+        [CLSCompliant(false), ReliabilityContract(Consistency.MayCorruptInstance, Cer.MayFail)]
         [System.Runtime.Versioning.NonVersionable]
         public static unsafe explicit operator UIntPtr(void* value)
         {
@@ -161,23 +158,33 @@ namespace System
 
         [CLSCompliant(false)]
         [System.Runtime.Versioning.NonVersionable]
-        public static unsafe explicit operator void* (UIntPtr value)
+        public static unsafe explicit operator void*(UIntPtr value)
         {
             return value._value;
         }
 
-
         [System.Runtime.Versioning.NonVersionable]
-        public unsafe static bool operator ==(UIntPtr value1, UIntPtr value2)
+        public unsafe static explicit operator uint(UIntPtr value)
         {
-            return value1._value == value2._value;
+            return value.ToUInt32();
         }
 
+        [System.Runtime.Versioning.NonVersionable]
+        public unsafe static explicit operator ulong(UIntPtr value)
+        {
+            return value.ToUInt64();
+        }
 
         [System.Runtime.Versioning.NonVersionable]
-        public unsafe static bool operator !=(UIntPtr value1, UIntPtr value2)
+        public unsafe static bool operator ==(UIntPtr left, UIntPtr right)
         {
-            return value1._value != value2._value;
+            return left._value == right._value;
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
+        public unsafe static bool operator !=(UIntPtr left, UIntPtr right)
+        {
+            return left._value != right._value;
         }
 
         [System.Runtime.Versioning.NonVersionable]
@@ -191,8 +198,8 @@ namespace System
         {
 #if BIT64
             return new UIntPtr(pointer.ToUInt64() + (ulong)offset);
-#else // 32
-                return new UIntPtr(pointer.ToUInt32() + (uint)offset);
+#else // !BIT64 (32)
+            return new UIntPtr(pointer.ToUInt32() + (uint)offset);
 #endif
         }
 
@@ -207,19 +214,20 @@ namespace System
         {
 #if BIT64
             return new UIntPtr(pointer.ToUInt64() - (ulong)offset);
-#else // 32
-                return new UIntPtr(pointer.ToUInt32() - (uint)offset);
+#else // !BIT64 (32)
+            return new UIntPtr(pointer.ToUInt32() - (uint)offset);
 #endif
         }
 
         public static int Size
         {
+            [Pure]
             [System.Runtime.Versioning.NonVersionable]
             get
             {
 #if BIT64
                 return 8;
-#else // 32
+#else // !BIT64 (32)
                 return 4;
 #endif
             }
