@@ -95,7 +95,7 @@ namespace System
         // Compares this object to another object, returning an integer that indicates the relationship. 
         // null is considered to be less than any instance.
         // If object is not of type uint or UIntPtr, this method throws an ArgumentException.
-        public int CompareTo(object value)
+        int IComparable.CompareTo(object value)
         {
             if (value == null)
             {
