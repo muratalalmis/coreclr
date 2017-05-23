@@ -223,6 +223,68 @@ namespace System
 #endif
         }
 
+        public static UIntPtr Parse(string s)
+        {
+#if BIT64
+            return new UIntPtr(ulong.Parse(s));
+#else // !BIT64 (32)
+            return new UIntPtr(uint.Parse(s));
+#endif
+        }
+
+        public static UIntPtr Parse(string s, NumberStyles style)
+        {
+#if BIT64
+            return new UIntPtr(ulong.Parse(s, style));
+#else // !BIT64 (32)
+            return new UIntPtr(uint.Parse(s, style));
+#endif
+        }
+
+        public static UIntPtr Parse(string s, IFormatProvider provider)
+        {
+#if BIT64
+            return new UIntPtr(ulong.Parse(s, provider));
+#else // !BIT64 (32)
+            return new UIntPtr(uint.Parse(s, provider));
+#endif
+        }
+
+        public static UIntPtr Parse(string s, NumberStyles style, IFormatProvider provider)
+        {
+#if BIT64
+            return new UIntPtr(ulong.Parse(s, style, provider));
+#else // !BIT64 (32)
+            return new UIntPtr(uint.Parse(s, style, provider));
+#endif
+        }
+
+        public static bool TryParse(string s, out UIntPtr result)
+        {
+#if BIT64
+            bool succeeded = ulong.TryParse(s, out ulong l);
+            result = new UIntPtr(l);
+            return succeeded;
+#else // !BIT64 (32)
+            bool succeeded = uint.TryParse(s, out uint i);
+            result = new UIntPtr(i);
+            return succeeded;
+#endif
+        }
+
+        public static bool TryParse(string s, NumberStyles style, IFormatProvider provider, out UIntPtr result)
+        {
+#if BIT64
+            bool succeeded = ulong.TryParse(s, style, provider, out ulong l);
+            result = new UIntPtr(l);
+            return succeeded;
+#else // !BIT64 (32)
+            bool succeeded = uint.TryParse(s, style, provider, out uint i);
+            result = new UIntPtr(i);
+            return succeeded;
+#endif
+        }
+
         [System.Runtime.Versioning.NonVersionable]
         public static explicit operator UIntPtr(uint value)
         {

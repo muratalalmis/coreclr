@@ -239,6 +239,68 @@ namespace System
 #endif
         }
 
+        public static IntPtr Parse(string s)
+        {
+#if BIT64
+            return new IntPtr(long.Parse(s));
+#else // !BIT64 (32)
+            return new IntPtr(int.Parse(s));
+#endif
+        }
+
+        public static IntPtr Parse(string s, NumberStyles style)
+        {
+#if BIT64
+            return new IntPtr(long.Parse(s, style));
+#else // !BIT64 (32)
+            return new IntPtr(int.Parse(s, style));
+#endif
+        }
+
+        public static IntPtr Parse(string s, IFormatProvider provider)
+        {
+#if BIT64
+            return new IntPtr(long.Parse(s, provider));
+#else // !BIT64 (32)
+            return new IntPtr(int.Parse(s, provider));
+#endif
+        }
+
+        public static IntPtr Parse(string s, NumberStyles style, IFormatProvider provider)
+        {
+#if BIT64
+            return new IntPtr(long.Parse(s, style, provider));
+#else // !BIT64 (32)
+            return new IntPtr(int.Parse(s, style, provider));
+#endif
+        }
+
+        public static bool TryParse(string s, out IntPtr result)
+        {
+#if BIT64
+            bool succeeded = long.TryParse(s, out long l);
+            result = new IntPtr(l);
+            return succeeded;
+#else // !BIT64 (32)
+            bool succeeded = int.TryParse(s, out int i);
+            result = new IntPtr(i);
+            return succeeded;
+#endif
+        }
+
+        public static bool TryParse(string s, NumberStyles style, IFormatProvider provider, out IntPtr result)
+        {
+#if BIT64
+            bool succeeded = long.TryParse(s, style, provider, out long l);
+            result = new IntPtr(l);
+            return succeeded;
+#else // !BIT64 (32)
+            bool succeeded = int.TryParse(s, style, provider, out int i);
+            result = new IntPtr(i);
+            return succeeded;
+#endif
+        }
+
         [System.Runtime.Versioning.NonVersionable]
         public static explicit operator IntPtr(int value)
         {
