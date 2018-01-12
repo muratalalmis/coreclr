@@ -2251,12 +2251,16 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
             case GT_RETURNTRAP:
             case GT_PUTARG_STK:
             case GT_IL_OFFSET:
+#if FEATURE_HW_INTRINSICS
+            case GT_HWIntrinsic:
+#endif // FEATURE_HW_INTRINSICS
                 // Never remove these nodes, as they are always side-effecting.
                 //
                 // NOTE: the only side-effect of some of these nodes (GT_CMP, GT_SUB_HI) is a write to the flags
                 // register.
                 // Properly modeling this would allow these nodes to be removed.
                 break;
+                
 
             case GT_NOP:
                 // NOTE: we need to keep some NOPs around because they are referenced by calls. See the dead store

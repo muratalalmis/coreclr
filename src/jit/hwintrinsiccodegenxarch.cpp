@@ -505,6 +505,29 @@ void CodeGen::genSSEIntrinsic(GenTreeHWIntrinsic* node)
             break;
         }
 
+        case NI_SSE_LoadAlignedVector128:
+        case NI_SSE_LoadScalar:
+        case NI_SSE_LoadVector128:
+        {
+            assert(baseType == TYP_FLOAT);
+            assert(op2 == nullptr);
+
+            instruction ins = Compiler::insOfHWIntrinsic(intrinsicID, node->gtSIMDBaseType);
+            emit->emitIns_R_AR(ins, emitTypeSize(TYP_SIMD16), targetReg, op1Reg, 0);
+            break;
+        }
+
+        case NI_SSE_LoadHigh:
+        case NI_SSE_LoadLow:
+        {
+            assert(baseType == TYP_FLOAT);
+            op2Reg = op2->gtRegNum;
+
+            instruction ins = Compiler::insOfHWIntrinsic(intrinsicID, node->gtSIMDBaseType);
+            emit->emitIns_SIMD_R_R_AR(ins, targetReg, op1Reg, op2Reg, TYP_SIMD16);
+            break;
+        }
+
         case NI_SSE_MoveMask:
         {
             assert(baseType == TYP_FLOAT);
@@ -647,6 +670,22 @@ void CodeGen::genSSEIntrinsic(GenTreeHWIntrinsic* node)
 
                 genDefineTempLabel(switchTableEnd);
             }
+            break;
+        }
+
+        case NI_SSE_Store:
+        case NI_SSE_StoreAligned:
+        case NI_SSE_StoreAlignedNonTemporal:
+        case NI_SSE_StoreHigh:
+        case NI_SSE_StoreLow:
+        case NI_SSE_StoreScalar:
+        {
+            assert(baseType == TYP_FLOAT);
+            assert(targetReg == REG_NA);
+            op2Reg = op2->gtRegNum;
+
+            instruction ins = Compiler::insOfHWIntrinsic(intrinsicID, node->gtSIMDBaseType);
+            emit->emitIns_AR_R(ins, emitTypeSize(TYP_SIMD16), op2Reg, op1Reg, 0);
             break;
         }
 

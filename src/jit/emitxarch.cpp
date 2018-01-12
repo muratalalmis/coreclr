@@ -4013,6 +4013,28 @@ void emitter::emitIns_R_R_A(
     emitCurIGsize += sz;
 }
 
+void emitter::emitIns_R_R_AR(instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, regNumber base, int offs)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    instrDesc* id = emitNewInstrAmd(attr, offs);
+
+    id->idIns(ins);
+    id->idReg1(reg1);
+    id->idReg2(reg2);
+
+    id->idInsFmt(IF_RWR_RRD_ARD);
+    id->idAddr()->iiaAddrMode.amBaseReg = base;
+    id->idAddr()->iiaAddrMode.amIndxReg = REG_NA;
+
+    UNATIVE_OFFSET sz = emitInsSizeAM(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins));
+    id->idCodeSize(sz);
+
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
 void emitter::emitIns_R_R_C(
     instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, CORINFO_FIELD_HANDLE fldHnd, int offs)
 {
@@ -5154,6 +5176,22 @@ void emitter::emitIns_SIMD_R_R_A(
             emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
         }
         emitIns_R_A(ins, emitTypeSize(simdtype), reg, indir, IF_RWR_ARD);
+    }
+}
+
+void emitter::emitIns_SIMD_R_R_AR(instruction ins, regNumber reg, regNumber reg1, regNumber base, var_types simdtype)
+{
+    if (UseVEXEncoding())
+    {
+        emitIns_R_R_AR(ins, emitTypeSize(simdtype), reg, reg1, base, 0);
+    }
+    else
+    {
+        if (reg1 != reg)
+        {
+            emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
+        }
+        emitIns_R_AR(ins, emitTypeSize(simdtype), reg, base, 0);
     }
 }
 
@@ -8159,6 +8197,10 @@ BYTE* emitter::emitOutputAM(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
 
         // encode source operand reg in 'vvvv' bits in 1's compliement form
         code = insEncodeReg3456(ins, src1, size, code);
+    }
+    else if (IsDstSrcSrcAVXInstruction(ins))
+    {
+        code = insEncodeReg3456(ins, id->idReg2(), size, code);
     }
 
     // Emit the REX prefix if required
