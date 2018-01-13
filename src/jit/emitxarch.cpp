@@ -2595,10 +2595,14 @@ emitter::insFormat emitter::emitMapFmtAtoM(insFormat fmt)
             return IF_RRD_MRD;
         case IF_RWR_ARD:
             return IF_RWR_MRD;
+        case IF_RWR_ARD_CNS:
+            return IF_RWR_MRD_CNS;
         case IF_RRW_ARD:
             return IF_RRW_MRD;
         case IF_RWR_RRD_ARD:
             return IF_RWR_RRD_MRD;
+        case IF_RWR_RRD_ARD_CNS:
+            return IF_RWR_RRD_MRD_CNS;
 
         case IF_ARD_RRD:
             return IF_MRD_RRD;
@@ -3917,6 +3921,76 @@ void emitter::emitIns_R_A(instruction ins, emitAttr attr, regNumber reg1, GenTre
     emitCurIGsize += sz;
 }
 
+void emitter::emitIns_R_A_I(
+    instruction ins, emitAttr attr, regNumber reg1, GenTreeIndir* indir, int ival, insFormat fmt)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    ssize_t    offs = indir->Offset();
+    instrDesc* id   = emitNewInstrAmdCns(attr, offs, ival);
+
+    id->idIns(ins);
+    id->idReg1(reg1);
+
+    emitHandleMemOp(indir, id, fmt, ins);
+
+    UNATIVE_OFFSET sz = emitInsSizeAM(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+    id->idCodeSize(sz);
+
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
+void emitter::emitIns_R_C_I(
+    instruction ins, emitAttr attr, regNumber reg1, CORINFO_FIELD_HANDLE fldHnd, int offs, int ival)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    // Static always need relocs
+    if (!jitStaticFldIsGlobAddr(fldHnd))
+    {
+        attr = EA_SET_FLG(attr, EA_DSP_RELOC_FLG);
+    }
+
+    instrDesc*     id = emitNewInstrCnsDsp(attr, ival, offs);
+    UNATIVE_OFFSET sz = emitInsSizeCV(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+
+    id->idIns(ins);
+    id->idInsFmt(IF_RWR_RRD_MRD_CNS);
+    id->idReg1(reg1);
+    id->idAddr()->iiaFieldHnd = fldHnd;
+
+    id->idCodeSize(sz);
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
+void emitter::emitIns_R_S_I(
+    instruction ins, emitAttr attr, regNumber reg1, int varx, int offs, int ival)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    instrDesc*     id = emitNewInstrCns(attr, ival);
+    UNATIVE_OFFSET sz =
+        emitInsSizeSV(insCodeRM(ins), varx, offs) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+
+    id->idIns(ins);
+    id->idInsFmt(IF_RWR_RRD_SRD_CNS);
+    id->idReg1(reg1);
+    id->idAddr()->iiaLclVar.initLclVarAddr(varx, offs);
+
+#ifdef DEBUG
+    id->idDebugOnlyInfo()->idVarRefOffs = emitVarRefOffs;
+#endif
+
+    id->idCodeSize(sz);
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
 void emitter::emitIns_R_R_A(
     instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, GenTreeIndir* indir, insFormat fmt)
 {
@@ -4015,6 +4089,54 @@ void emitter::emitIns_R_R_S(instruction ins, emitAttr attr, regNumber reg1, regN
     emitCurIGsize += sz;
 }
 
+void emitter::emitIns_R_R_A_I(
+    instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, GenTreeIndir* indir, int ival, insFormat fmt)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    ssize_t    offs = indir->Offset();
+    instrDesc* id   = emitNewInstrAmdCns(attr, offs, ival);
+
+    id->idIns(ins);
+    id->idReg1(reg1);
+    id->idReg2(reg2);
+
+    emitHandleMemOp(indir, id, fmt, ins);
+
+    UNATIVE_OFFSET sz = emitInsSizeAM(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+    id->idCodeSize(sz);
+
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
+void emitter::emitIns_R_R_C_I(
+    instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, CORINFO_FIELD_HANDLE fldHnd, int offs, int ival)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    // Static always need relocs
+    if (!jitStaticFldIsGlobAddr(fldHnd))
+    {
+        attr = EA_SET_FLG(attr, EA_DSP_RELOC_FLG);
+    }
+
+    instrDesc*     id = emitNewInstrCnsDsp(attr, ival, offs);
+    UNATIVE_OFFSET sz = emitInsSizeCV(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+
+    id->idIns(ins);
+    id->idInsFmt(IF_RWR_RRD_MRD_CNS);
+    id->idReg1(reg1);
+    id->idReg2(reg2);
+    id->idAddr()->iiaFieldHnd = fldHnd;
+
+    id->idCodeSize(sz);
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
 /**********************************************************************************
 * emitIns_R_R_R_I: Add an instruction with three register operands and an immediate.
 *
@@ -4043,6 +4165,31 @@ void emitter::emitIns_R_R_R_I(
     id->idReg1(targetReg);
     id->idReg2(reg1);
     id->idReg3(reg2);
+
+    id->idCodeSize(sz);
+    dispIns(id);
+    emitCurIGsize += sz;
+}
+
+void emitter::emitIns_R_R_S_I(
+    instruction ins, emitAttr attr, regNumber reg1, regNumber reg2, int varx, int offs, int ival)
+{
+    assert(IsSSEOrAVXInstruction(ins));
+    assert(IsThreeOperandAVXInstruction(ins));
+
+    instrDesc*     id = emitNewInstrCns(attr, ival);
+    UNATIVE_OFFSET sz =
+        emitInsSizeSV(insCodeRM(ins), varx, offs) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+
+    id->idIns(ins);
+    id->idInsFmt(IF_RWR_RRD_SRD_CNS);
+    id->idReg1(reg1);
+    id->idReg2(reg2);
+    id->idAddr()->iiaLclVar.initLclVarAddr(varx, offs);
+
+#ifdef DEBUG
+    id->idDebugOnlyInfo()->idVarRefOffs = emitVarRefOffs;
+#endif
 
     id->idCodeSize(sz);
     dispIns(id);
@@ -5006,7 +5153,7 @@ void emitter::emitIns_SIMD_R_R_A(
         {
             emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
         }
-        emitIns_R_A(ins, emitTypeSize(simdtype), reg, indir, IF_RRW_ARD);
+        emitIns_R_A(ins, emitTypeSize(simdtype), reg, indir, IF_RWR_ARD);
     }
 }
 
@@ -5059,6 +5206,40 @@ void emitter::emitIns_SIMD_R_R_S(instruction ins, regNumber reg, regNumber reg1,
     }
 }
 
+void emitter::emitIns_SIMD_R_R_A_I(
+    instruction ins, regNumber reg, regNumber reg1, GenTreeIndir* indir, int ival, var_types simdtype)
+{
+    if (UseVEXEncoding())
+    {
+        emitIns_R_R_A_I(ins, emitTypeSize(simdtype), reg, reg1, indir, ival, IF_RWR_RRD_ARD_CNS);
+    }
+    else
+    {
+        if (reg1 != reg)
+        {
+            emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
+        }
+        emitIns_R_A_I(ins, emitTypeSize(simdtype), reg, indir, ival, IF_RWR_ARD_CNS);
+    }
+}
+
+void emitter::emitIns_SIMD_R_R_C_I(
+    instruction ins, regNumber reg, regNumber reg1, CORINFO_FIELD_HANDLE fldHnd, int offs, int ival, var_types simdtype)
+{
+    if (UseVEXEncoding())
+    {
+        emitIns_R_R_C_I(ins, emitTypeSize(simdtype), reg, reg1, fldHnd, offs, ival);
+    }
+    else
+    {
+        if (reg1 != reg)
+        {
+            emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
+        }
+        emitIns_R_C_I(ins, emitTypeSize(simdtype), reg, fldHnd, offs, ival);
+    }
+}
+
 void emitter::emitIns_SIMD_R_R_R_I(
     instruction ins, regNumber reg, regNumber reg1, regNumber reg2, int ival, var_types simdtype)
 {
@@ -5073,6 +5254,23 @@ void emitter::emitIns_SIMD_R_R_R_I(
             emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
         }
         emitIns_R_R_I(ins, emitTypeSize(simdtype), reg, reg2, ival);
+    }
+}
+
+void emitter::emitIns_SIMD_R_R_S_I(
+    instruction ins, regNumber reg, regNumber reg1, int varx, int offs, int ival, var_types simdtype)
+{
+    if (UseVEXEncoding())
+    {
+        emitIns_R_R_S_I(ins, emitTypeSize(simdtype), reg, reg1, varx, offs, ival);
+    }
+    else
+    {
+        if (reg1 != reg)
+        {
+            emitIns_R_R(INS_movaps, emitTypeSize(simdtype), reg, reg1);
+        }
+        emitIns_R_S_I(ins, emitTypeSize(simdtype), reg, varx, offs, ival);
     }
 }
 #endif
@@ -7090,10 +7288,52 @@ void emitter::emitDispIns(
             emitDispAddrMode(id);
             break;
 
+        case IF_RWR_ARD_CNS:
+        {
+            printf("%s, %s", emitRegName(id->idReg1(), attr), sstr);
+            emitDispAddrMode(id);
+            emitGetInsAmdCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            
+            break;
+        }
+
         case IF_RWR_RRD_ARD:
             printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
             emitDispAddrMode(id);
             break;
+
+        case IF_RWR_RRD_ARD_CNS:
+        {
+            printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
+            emitDispAddrMode(id);
+            emitGetInsAmdCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            
+            break;
+        }
 
         case IF_ARD_RRD:
         case IF_AWR_RRD:
@@ -7238,11 +7478,53 @@ void emitter::emitDispIns(
 
             break;
 
+        case IF_RWR_SRD_CNS:
+        {
+            printf("%s, %s", emitRegName(id->idReg1(), attr), sstr);
+            emitDispFrameRef(id->idAddr()->iiaLclVar.lvaVarNum(), id->idAddr()->iiaLclVar.lvaOffset(),
+                             id->idDebugOnlyInfo()->idVarRefOffs, asmfm);
+            emitGetInsCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            break;
+        }
+
         case IF_RWR_RRD_SRD:
             printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
             emitDispFrameRef(id->idAddr()->iiaLclVar.lvaVarNum(), id->idAddr()->iiaLclVar.lvaOffset(),
                              id->idDebugOnlyInfo()->idVarRefOffs, asmfm);
             break;
+
+        case IF_RWR_RRD_SRD_CNS:
+        {
+            printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
+            emitDispFrameRef(id->idAddr()->iiaLclVar.lvaVarNum(), id->idAddr()->iiaLclVar.lvaOffset(),
+                             id->idDebugOnlyInfo()->idVarRefOffs, asmfm);
+            emitGetInsCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            break;
+        }
 
         case IF_RRD_RRD:
         case IF_RWR_RRD:
@@ -7372,11 +7654,53 @@ void emitter::emitDispIns(
             emitDispClsVar(id->idAddr()->iiaFieldHnd, offs, ID_INFO_DSP_RELOC);
             break;
 
+        case IF_RWR_MRD_CNS:
+        {
+            printf("%s, %s", emitRegName(id->idReg1(), attr), sstr);
+            offs = emitGetInsDsp(id);
+            emitDispClsVar(id->idAddr()->iiaFieldHnd, offs, ID_INFO_DSP_RELOC);
+            emitGetInsDcmCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            break;
+        }
+
         case IF_RWR_RRD_MRD:
             printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
             offs = emitGetInsDsp(id);
             emitDispClsVar(id->idAddr()->iiaFieldHnd, offs, ID_INFO_DSP_RELOC);
             break;
+
+        case IF_RWR_RRD_MRD_CNS:
+        {
+            printf("%s, %s, %s", emitRegName(id->idReg1(), attr), emitRegName(id->idReg2(), attr), sstr);
+            offs = emitGetInsDsp(id);
+            emitDispClsVar(id->idAddr()->iiaFieldHnd, offs, ID_INFO_DSP_RELOC);
+            emitGetInsDcmCns(id, &cnsVal);
+
+            val = cnsVal.cnsVal;
+            printf(", ");
+
+            if (cnsVal.cnsReloc)
+            {
+                emitDispReloc(val);
+            }
+            else
+            {
+                goto PRINT_CONSTANT;
+            }
+            break;
+        }
 
         case IF_RWR_MRD_OFF:
 
@@ -7828,7 +8152,7 @@ BYTE* emitter::emitOutputAM(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
     {
         regNumber src1 = id->idReg2();
 
-        if (id->idInsFmt() != IF_RWR_RRD_ARD)
+        if ((id->idInsFmt() != IF_RWR_RRD_ARD) && (id->idInsFmt() != IF_RWR_RRD_ARD_CNS))
         {
             src1 = id->idReg1();
         }
@@ -11190,6 +11514,18 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             sz      = emitSizeOfInsDsc(id);
             break;
 
+        case IF_RWR_ARD_CNS:
+        case IF_RWR_RRD_ARD_CNS:
+        {
+            emitGetInsAmdCns(id, &cnsVal);
+            code    = insCodeRM(ins);
+            code    = AddVexPrefixIfNeeded(ins, code, size);
+            regcode = (insEncodeReg345(ins, id->idReg1(), size, &code) << 8);
+            dst     = emitOutputAM(dst, id, code | regcode, &cnsVal);
+            sz      = emitSizeOfInsDsc(id);
+            break;
+        }
+
         case IF_ARD_RRD:
         case IF_AWR_RRD:
         case IF_ARW_RRD:
@@ -11308,6 +11644,34 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             }
             break;
 
+        case IF_RWR_SRD_CNS:
+        case IF_RWR_RRD_SRD_CNS:
+        {
+            emitGetInsCns(id, &cnsVal);
+            code = insCodeRM(ins);
+
+            // 4-byte AVX instructions are special cased inside emitOutputSV
+            // since they do not have space to encode ModRM byte.
+            if (Is4ByteAVXInstruction(ins))
+            {
+                dst = emitOutputSV(dst, id, code, &cnsVal);
+            }
+            else
+            {
+                code = AddVexPrefixIfNeeded(ins, code, size);
+
+                if (IsDstDstSrcAVXInstruction(ins))
+                {
+                    // encode source operand reg in 'vvvv' bits in 1's compliement form
+                    code = insEncodeReg3456(ins, id->idReg1(), size, code);
+                }
+
+                regcode = (insEncodeReg345(ins, id->idReg1(), size, &code) << 8);
+                dst     = emitOutputSV(dst, id, code | regcode, &cnsVal);
+            }
+            break;
+        }
+
         case IF_SRD_RRD:
         case IF_SWR_RRD:
         case IF_SRW_RRD:
@@ -11391,6 +11755,34 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             }
             sz = emitSizeOfInsDsc(id);
             break;
+
+        case IF_RWR_MRD_CNS:
+        case IF_RWR_RRD_MRD_CNS:
+        {
+            emitGetInsCns(id, &cnsVal);
+            code = insCodeRM(ins);
+
+            // Special case 4-byte AVX instructions
+            if (Is4ByteAVXInstruction(ins))
+            {
+                dst = emitOutputCV(dst, id, code, &cnsVal);
+            }
+            else
+            {
+                code = AddVexPrefixIfNeeded(ins, code, size);
+
+                if (IsDstDstSrcAVXInstruction(ins))
+                {
+                    // encode source operand reg in 'vvvv' bits in 1's compliement form
+                    code = insEncodeReg3456(ins, id->idReg1(), size, code);
+                }
+
+                regcode = (insEncodeReg345(ins, id->idReg1(), size, &code) << 8);
+                dst     = emitOutputCV(dst, id, code | regcode | 0x0500, &cnsVal);
+            }
+            sz = emitSizeOfInsDsc(id);
+            break;
+        }
 
         case IF_RWR_MRD_OFF:
             code = insCode(ins);
