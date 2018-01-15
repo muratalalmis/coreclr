@@ -446,7 +446,6 @@ bool Compiler::isFullyImplmentedISAClass(InstructionSet isa)
 {
     switch (isa)
     {
-        case InstructionSet_SSE:
         case InstructionSet_SSE2:
         case InstructionSet_SSE3:
         case InstructionSet_SSSE3:
@@ -461,6 +460,7 @@ bool Compiler::isFullyImplmentedISAClass(InstructionSet isa)
         case InstructionSet_PCLMULQDQ:
             return false;
 
+        case InstructionSet_SSE:
         case InstructionSet_LZCNT:
         case InstructionSet_POPCNT:
             return true;
