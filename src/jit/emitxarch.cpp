@@ -2004,6 +2004,13 @@ UNATIVE_OFFSET emitter::emitInsSizeAM(instrDesc* id, code_t code)
     if (code & 0xFF000000)
     {
         size = 4;
+
+        // If Byte 4 is zero, the RM encoding goes there; otherwise, it is
+        // an opcode byte and we need an additional byte for the RM encoding.
+        if ((code & 0xFF00) != 0)
+        {
+            size++;
+        }
     }
     else if (code & 0x00FF0000)
     {
@@ -4009,6 +4016,12 @@ void emitter::emitIns_R_C_I(
     instrDesc*     id = emitNewInstrCnsDsp(attr, ival, offs);
     UNATIVE_OFFSET sz = emitInsSizeCV(id, insCodeRM(ins)) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
 
+    // 4-Byte SSE4 instructions need an additional byte for the ModR/M
+    if (Is4ByteSSE4Instruction(ins))
+    {
+        sz += 1;
+    }
+
     id->idIns(ins);
     id->idInsFmt(IF_RRW_MRD_CNS);
     id->idReg1(reg1);
@@ -4027,6 +4040,12 @@ void emitter::emitIns_R_S_I(instruction ins, emitAttr attr, regNumber reg1, int 
     instrDesc*     id = emitNewInstrCns(attr, ival);
     UNATIVE_OFFSET sz =
         emitInsSizeSV(insCodeRM(ins), varx, offs) + emitGetVexPrefixAdjustedSize(ins, attr, insCodeRM(ins)) + 1;
+
+    // 4-Byte SSE4 instructions need an additional byte for the ModR/M
+    if (Is4ByteSSE4Instruction(ins))
+    {
+        sz += 1;
+    }
 
     id->idIns(ins);
     id->idInsFmt(IF_RRW_SRD_CNS);
@@ -8387,6 +8406,12 @@ BYTE* emitter::emitOutputAM(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
         {
             dst += emitOutputWord(dst, code >> 16);
             code &= 0x0000FFFF;
+
+            if (Is4ByteSSE4Instruction(ins))
+            {
+                dst += emitOutputWord(dst, code);
+                code = 0;
+            }
         }
     }
     else if (code & 0x00FF0000)
@@ -8497,7 +8522,7 @@ GOT_DSP:
                     // The address is of the form "[disp]"
                     // On x86 - disp is relative to zero
                     // On Amd64 - disp is relative to RIP
-                    if (Is4ByteAVXInstruction(ins))
+                    if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                     {
                         dst += emitOutputByte(dst, code | 0x05);
                     }
@@ -8553,7 +8578,7 @@ GOT_DSP:
                 else
                 {
 #ifdef _TARGET_X86_
-                    if (Is4ByteAVXInstruction(ins))
+                    if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                     {
                         dst += emitOutputByte(dst, code | 0x05);
                     }
@@ -8570,7 +8595,7 @@ GOT_DSP:
                     noway_assert((int)dsp == dsp);
 
                     // This requires, specifying a SIB byte after ModRM byte.
-                    if (Is4ByteAVXInstruction(ins))
+                    if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                     {
                         dst += emitOutputByte(dst, code | 0x04);
                     }
@@ -8585,7 +8610,7 @@ GOT_DSP:
                 break;
 
             case REG_EBP:
-                if (Is4ByteAVXInstruction(ins))
+                if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                 {
                     // Does the offset fit in a byte?
                     if (dspInByte)
@@ -8639,7 +8664,7 @@ GOT_DSP:
                        (ins == INS_or));
 #endif // LEGACY_BACKEND
 
-                if (Is4ByteAVXInstruction(ins))
+                if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                 {
                     // Is the offset 0 or does it at least fit in a byte?
                     if (dspIsZero)
@@ -8692,7 +8717,7 @@ GOT_DSP:
                 break;
 
             default:
-                if (Is4ByteAVXInstruction(ins))
+                if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                 {
                     // Put the register in the opcode
                     code |= insEncodeReg012(ins, reg, EA_PTRSIZE, nullptr);
@@ -8773,7 +8798,7 @@ GOT_DSP:
                 regByte = insEncodeReg012(ins, reg, EA_PTRSIZE, nullptr) |
                           insEncodeReg345(ins, rgx, EA_PTRSIZE, nullptr) | insSSval(mul);
 
-                if (Is4ByteAVXInstruction(ins))
+                if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                 {
                     // Emit [ebp + {2/4/8} * rgz] as [ebp + {2/4/8} * rgx + 0]
                     if (dspIsZero && reg != REG_EBP)
@@ -8840,7 +8865,7 @@ GOT_DSP:
                 regByte = insEncodeReg012(ins, REG_EBP, EA_PTRSIZE, nullptr) |
                           insEncodeReg345(ins, rgx, EA_PTRSIZE, nullptr) | insSSval(mul);
 
-                if (Is4ByteAVXInstruction(ins))
+                if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
                 {
                     dst += emitOutputByte(dst, code | 0x04);
                 }
@@ -8869,7 +8894,7 @@ GOT_DSP:
             // The address is "[reg+rgx+dsp]"
             regByte = insEncodeReg012(ins, reg, EA_PTRSIZE, nullptr) | insEncodeReg345(ins, rgx, EA_PTRSIZE, nullptr);
 
-            if (Is4ByteAVXInstruction(ins))
+            if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
             {
                 if (dspIsZero && reg != REG_EBP)
                 {
@@ -9118,6 +9143,12 @@ BYTE* emitter::emitOutputSV(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
         {
             dst += emitOutputWord(dst, code >> 16);
             code &= 0x0000FFFF;
+
+            if (Is4ByteSSE4Instruction(ins))
+            {
+                dst += emitOutputWord(dst, code);
+                code = insEncodeReg345(ins, id->idReg1(), size, &code);
+            }
         }
     }
     else if (code & 0x00FF0000)
@@ -9216,7 +9247,7 @@ BYTE* emitter::emitOutputSV(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
     if (EBPbased)
     {
         // EBP-based variable: does the offset fit in a byte?
-        if (Is4ByteAVXInstruction(ins))
+        if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
         {
             if (dspInByte)
             {
@@ -9255,7 +9286,7 @@ BYTE* emitter::emitOutputSV(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
         dspIsZero = (dsp == 0);
 
         // Does the offset fit in a byte?
-        if (Is4ByteAVXInstruction(ins))
+        if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
         {
             if (dspInByte)
             {
@@ -9550,8 +9581,18 @@ BYTE* emitter::emitOutputCV(BYTE* dst, instrDesc* id, code_t code, CnsVal* addc)
         if (code & 0xFF000000)
         {
             dst += emitOutputWord(dst, code >> 16);
+            code &= 0x0000FFFF;
+
+            if (Is4ByteSSE4Instruction(ins))
+            {
+                unsigned regcode = insEncodeReg345(ins, id->idReg1(), size, &code);
+
+                dst += emitOutputWord(dst, code);
+                dst += emitOutputByte(dst, regcode | 0x05);
+
+                code = 0;
+            }
         }
-        code &= 0x0000FFFF;
     }
     else if (code & 0x00FF0000)
     {
@@ -11879,8 +11920,8 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             emitGetInsAmdCns(id, &cnsVal);
             code = insCodeRM(ins);
 
-            // Special case 4-byte AVX instructions
-            if (Is4ByteAVXInstruction(ins))
+            // Special case 4-byte AVX/SSE instructions
+            if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
             {
                 dst = emitOutputAM(dst, id, code, &cnsVal);
             }
@@ -12006,7 +12047,7 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             code = insCodeRM(ins);
 
             // Special case 4-byte AVX instructions
-            if (Is4ByteAVXInstruction(ins))
+            if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
             {
                 dst = emitOutputSV(dst, id, code, &cnsVal);
             }
@@ -12150,8 +12191,8 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
             emitGetInsDcmCns(id, &cnsVal);
             code = insCodeRM(ins);
 
-            // Special case 4-byte AVX instructions
-            if (Is4ByteAVXInstruction(ins))
+            // Special case 4-byte AVX/SSE instructions
+            if (Is4ByteAVXInstruction(ins) || Is4ByteSSE4Instruction(ins))
             {
                 dst = emitOutputCV(dst, id, code, &cnsVal);
             }
