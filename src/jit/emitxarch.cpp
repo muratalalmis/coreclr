@@ -27,7 +27,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 bool IsSSE2Instruction(instruction ins)
 {
-    return (ins >= INS_FIRST_SSE2_INSTRUCTION && ins <= INS_LAST_SSE2_INSTRUCTION);
+    return ((ins > INS_FIRST_SSE2_INSTRUCTION) && (ins < INS_LAST_SSE2_INSTRUCTION));
 }
 
 bool IsSSE4Instruction(instruction ins)
@@ -35,14 +35,14 @@ bool IsSSE4Instruction(instruction ins)
 #ifdef LEGACY_BACKEND
     return false;
 #else
-    return (ins >= INS_FIRST_SSE4_INSTRUCTION && ins <= INS_LAST_SSE4_INSTRUCTION);
+    return ((ins > INS_FIRST_SSE4_INSTRUCTION) && (ins < INS_LAST_SSE4_INSTRUCTION));
 #endif
 }
 
 bool IsSSEOrAVXInstruction(instruction ins)
 {
 #ifndef LEGACY_BACKEND
-    return (ins >= INS_FIRST_SSE2_INSTRUCTION && ins <= INS_LAST_AVX_INSTRUCTION);
+    return ((ins > INS_FIRST_SSE2_INSTRUCTION) && (ins < INS_LAST_AVX_INSTRUCTION));
 #else  // !LEGACY_BACKEND
     return IsSSE2Instruction(ins);
 #endif // LEGACY_BACKEND
@@ -51,7 +51,7 @@ bool IsSSEOrAVXInstruction(instruction ins)
 bool IsAVXOnlyInstruction(instruction ins)
 {
 #ifndef LEGACY_BACKEND
-    return (ins >= INS_FIRST_AVX_INSTRUCTION && ins <= INS_LAST_AVX_INSTRUCTION);
+    return ((ins > INS_FIRST_AVX_INSTRUCTION) && (ins < INS_LAST_AVX_INSTRUCTION));
 #else
     return false;
 #endif
@@ -1113,10 +1113,10 @@ inline size_t insCodeACC(instruction ins)
     const static
     size_t          insCodesACC[] =
     {
-        #define INST0(id, nm, fp, um, rf, wf, mr                )
-        #define INST1(id, nm, fp, um, rf, wf, mr                )
-        #define INST2(id, nm, fp, um, rf, wf, mr, mi            )
-        #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        )
+        #define INST0(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+        #define INST1(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+        #define INST2(id, nm, fp, um, rf, wf, mr, mi            ) BAD_CODE,
+        #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        ) BAD_CODE,
         #define INST4(id, nm, fp, um, rf, wf, mr, mi, rm, a4    ) a4,
         #define INST5(id, nm, fp, um, rf, wf, mr, mi, rm, a4, rr) a4,
         #include "instrs.h"
@@ -1146,11 +1146,11 @@ inline size_t insCodeRR(instruction ins)
     const static
     size_t          insCodesRR[] =
     {
-        #define INST0(id, nm, fp, um, rf, wf, mr                )
-        #define INST1(id, nm, fp, um, rf, wf, mr                )
-        #define INST2(id, nm, fp, um, rf, wf, mr, mi            )
-        #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        )
-        #define INST4(id, nm, fp, um, rf, wf, mr, mi, rm, a4    )
+        #define INST0(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+        #define INST1(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+        #define INST2(id, nm, fp, um, rf, wf, mr, mi            ) BAD_CODE,
+        #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        ) BAD_CODE,
+        #define INST4(id, nm, fp, um, rf, wf, mr, mi, rm, a4    ) BAD_CODE,
         #define INST5(id, nm, fp, um, rf, wf, mr, mi, rm, a4, rr) rr,
         #include "instrs.h"
         #undef  INST0
@@ -1172,9 +1172,9 @@ inline size_t insCodeRR(instruction ins)
 const static
 size_t          insCodesRM[] =
 {
-    #define INST0(id, nm, fp, um, rf, wf, mr                )
-    #define INST1(id, nm, fp, um, rf, wf, mr                )
-    #define INST2(id, nm, fp, um, rf, wf, mr, mi            )
+    #define INST0(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+    #define INST1(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+    #define INST2(id, nm, fp, um, rf, wf, mr, mi            ) BAD_CODE,
     #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        ) rm,
     #define INST4(id, nm, fp, um, rf, wf, mr, mi, rm, a4    ) rm,
     #define INST5(id, nm, fp, um, rf, wf, mr, mi, rm, a4, rr) rm,
@@ -1212,8 +1212,8 @@ inline size_t insCodeRM(instruction ins)
 const static
 size_t          insCodesMI[] =
 {
-    #define INST0(id, nm, fp, um, rf, wf, mr                )
-    #define INST1(id, nm, fp, um, rf, wf, mr                )
+    #define INST0(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
+    #define INST1(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
     #define INST2(id, nm, fp, um, rf, wf, mr, mi            ) mi,
     #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        ) mi,
     #define INST4(id, nm, fp, um, rf, wf, mr, mi, rm, a4    ) mi,
@@ -1252,7 +1252,7 @@ inline size_t insCodeMI(instruction ins)
 const static
 size_t          insCodesMR[] =
 {
-    #define INST0(id, nm, fp, um, rf, wf, mr                )
+    #define INST0(id, nm, fp, um, rf, wf, mr                ) BAD_CODE,
     #define INST1(id, nm, fp, um, rf, wf, mr                ) mr,
     #define INST2(id, nm, fp, um, rf, wf, mr, mi            ) mr,
     #define INST3(id, nm, fp, um, rf, wf, mr, mi, rm        ) mr,
@@ -3578,12 +3578,11 @@ void emitter::emitIns_R(instruction ins, emitAttr attr, regNumber reg)
         default:
 
             /* All the sixteen INS_setCCs are contiguous. */
-
-            if (INS_seto <= ins && ins <= INS_setg)
+            if ((ins > INS_FIRST_CSET_INSTRUCTION) && (ins < INS_LAST_CSET_INSTRUCTION))
             {
                 // Rough check that we used the endpoints for the range check
 
-                assert(INS_seto + 0xF == INS_setg);
+                assert((INS_LAST_CSET_INSTRUCTION - INS_FIRST_CSET_INSTRUCTION - 1) == 16);
 
                 // The caller must specify EA_1BYTE for 'attr'
 

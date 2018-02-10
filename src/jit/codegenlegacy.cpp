@@ -6176,9 +6176,9 @@ bool CodeGen::genCodeForQmarkWithCMOV(GenTree* tree, regMaskTP destReg, regMaskT
     }
 #endif
 
-    const static instruction EJtoCMOV[] = {INS_nop,    INS_nop,    INS_cmovo,  INS_cmovno, INS_cmovb,  INS_cmovae,
-                                           INS_cmove,  INS_cmovne, INS_cmovbe, INS_cmova,  INS_cmovs,  INS_cmovns,
-                                           INS_cmovpe, INS_cmovpo, INS_cmovl,  INS_cmovge, INS_cmovle, INS_cmovg};
+    const static instruction EJtoCMOV[] = {INS_nop,    INS_nop,    INS_cmova,  INS_cmovae, INS_cmovb,  INS_cmovbe,
+                                           INS_cmove,  INS_cmovg,  INS_cmovge, INS_cmovl,  INS_cmovle, INS_cmovne,
+                                           INS_cmovno, INS_cmovns, INS_cmovo,  INS_cmovpe, INS_cmovpo, INS_cmovs};
 
     noway_assert((unsigned)jumpKind < _countof(EJtoCMOV));
     instruction cmov_ins = EJtoCMOV[jumpKind];

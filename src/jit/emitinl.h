@@ -470,7 +470,7 @@ inline ssize_t emitter::emitGetInsAmdAny(instrDesc* id)
 #ifdef _TARGET_XARCH_
 inline bool insIsCMOV(instruction ins)
 {
-    return ((ins >= INS_cmovo) && (ins <= INS_cmovg));
+    return ((ins > INS_FIRST_CMOV_INSTRUCTION) && (ins < INS_LAST_CMOV_INSTRUCTION));
 }
 #endif
 
