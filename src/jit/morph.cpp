@@ -18597,8 +18597,14 @@ void Compiler::fgRetypeImplicitByRefArgs()
                     undoPromotion = true;
                     JITDUMP("Undoing promotion for struct parameter V%02d, because promotion is dependent.\n", lclNum);
                 }
-                else if (varDsc->lvRefCnt <= varDsc->lvFieldCnt)
+                else if ((varDsc->lvRefCnt > 2) && (varDsc->lvRefCnt <= varDsc->lvFieldCnt))
                 {
+                    // If the refCnt is less than or equal to the fieldCnt we don't want to promote.
+                    //
+                    // The exception to this is when the refCnt is less than or equal to 2, in which
+                    // case we still want to promote. This allows binary operators for small structs
+                    // to still take advantage of struct promotion.
+
                     undoPromotion = true;
                     JITDUMP("Undoing promotion for for struct parameter V%02d: #refs = %d, #fields = %d.\n", lclNum, varDsc->lvRefCnt, varDsc->lvFieldCnt);
                 }
