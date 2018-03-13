@@ -1803,6 +1803,7 @@ bool Compiler::lvaShouldPromoteStructVar(unsigned lclNum, lvaStructPromotionInfo
     bool shouldPromote = true;
 
     // We *can* promote; *should* we promote?
+    //
     // We should only do so if promotion has potential savings.  One source of savings
     // is if a field of the struct is accessed, since this access will be turned into
     // an access of the corresponding promoted field variable.  Even if there are no
@@ -1811,15 +1812,17 @@ bool Compiler::lvaShouldPromoteStructVar(unsigned lclNum, lvaStructPromotionInfo
     // than doing a whole-variable block operation (e.g., a hardware "copy loop" on x86).
     // Struct promotion also provides the following benefits: reduce stack frame size,
     // reduce the need for zero init of stack frame and fine grained constant/copy prop.
-    // Asm diffs indicate that promoting structs up to 3 fields is a net size win.
-    // So if no fields are accessed independently, and there are four or more fields,
+    // Asm diffs indicate that promoting structs up to 4 fields is a net size win.
+    // So if no fields are accessed independently, and there are five or more fields,
     // then do not promote.
+    //
+    // We currently set this to 4 in order to cover the basic SIMD and SIMD like structs.
     //
     // TODO: Ideally we would want to consider the impact of whether the struct is
     // passed as a parameter or assigned the return value of a call. Because once promoted,
     // struct copying is done by field by field assignment instead of a more efficient
     // rep.stos or xmm reg based copy.
-    if (structPromotionInfo->fieldCnt > 3 && !varDsc->lvFieldAccessed)
+    if (structPromotionInfo->fieldCnt > 4 && !varDsc->lvFieldAccessed)
     {
         JITDUMP("Not promoting promotable struct local V%02u: #fields = %d, fieldAccessed = %d.\n", lclNum,
                 structPromotionInfo->fieldCnt, varDsc->lvFieldAccessed);
