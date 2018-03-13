@@ -18584,13 +18584,28 @@ void Compiler::fgRetypeImplicitByRefArgs()
                 newVarDsc->lvLiveAcrossUCall  = varDsc->lvLiveAcrossUCall;
 #endif // DEBUG
 
-                // If the promotion is dependent, the promoted temp would just be committed
-                // to memory anyway, so we'll rewrite its appearances to be indirections
-                // through the pointer parameter, the same as we'd do for this
-                // parameter if it weren't promoted at all (otherwise the initialization
-                // of the new temp would just be a needless memcpy at method entry).
-                bool undoPromotion = (lvaGetPromotionType(newVarDsc) == PROMOTION_TYPE_DEPENDENT) ||
-                                     (varDsc->lvRefCnt <= varDsc->lvFieldCnt);
+                bool undoPromotion = false;
+
+                if (lvaGetPromotionType(newVarDsc) == PROMOTION_TYPE_DEPENDENT)
+                {
+                    // If the promotion is dependent, the promoted temp would just be committed
+                    // to memory anyway, so we'll rewrite its appearances to be indirections
+                    // through the pointer parameter, the same as we'd do for this
+                    // parameter if it weren't promoted at all (otherwise the initialization
+                    // of the new temp would just be a needless memcpy at method entry).
+
+                    undoPromotion = true;
+                    JITDUMP("Undoing promotion for struct parameter V%02d, because promotion is dependent.\n", lclNum);
+                }
+                else if (varDsc->lvRefCnt <= varDsc->lvFieldCnt)
+                {
+                    undoPromotion = true;
+                    JITDUMP("Undoing promotion for for struct parameter V%02d: #refs = %d, #fields = %d.\n", lclNum, varDsc->lvRefCnt, varDsc->lvFieldCnt);
+                }
+                else
+                {
+                    JITDUMP("Not undoing promotion for for struct parameter V%02d.\n", lclNum);
+                }
 
                 if (!undoPromotion)
                 {
@@ -18692,12 +18707,13 @@ void Compiler::fgRetypeImplicitByRefArgs()
             // This should not be converted to a double in stress mode,
             // because it is really a pointer
             varDsc->lvKeepType = 1;
-
-            if (verbose)
-            {
-                printf("Changing the lvType for struct parameter V%02d to TYP_BYREF.\n", lclNum);
-            }
 #endif // DEBUG
+
+            JITDUMP("Changing the lvType for struct parameter V%02d to TYP_BYREF.\n", lclNum);
+        }
+        else
+        {
+            JITDUMP("Not changing the lvType for struct parameter V%02d", lclNum);
         }
     }
 
